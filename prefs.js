@@ -249,7 +249,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const pollingTipsRow = new Adw.ActionRow({
             title: _('💡 GitHub Polling Tips'),
-            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Use "Test GitHub Polling" in panel menu\n• Set 1-2 minutes for testing, 15+ for production')
+            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Check GNOME logs for polling status\n• Set 1-2 minutes for testing, 15+ for production')
         });
         tipsGroup.add(pollingTipsRow);
     }
@@ -430,7 +430,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const troubleshootingRow = new Adw.ActionRow({
             title: _('🚨 Troubleshooting Steps'),
-            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Test with "Test GitHub Polling" in panel menu\n4. Check logs for error messages\n5. Try disabling/re-enabling extension')
+            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check GNOME logs for error messages\n4. Try manual "Sync Now" to test connectivity\n5. Verify single commit created for complete sync\n6. Try disabling/re-enabling extension')
         });
         debugGroup.add(troubleshootingRow);
         
@@ -442,10 +442,16 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         page.add(performanceGroup);
         
         const performanceRow = new Adw.ActionRow({
-            title: _('⚡ Performance Tips'),
-            subtitle: _('• Increase Change Sync Delay for rapidly-changing files\n• Use "Backup Only" sync direction for better performance\n• Disable wallpaper syncing if not needed\n• Use longer polling intervals in production\n• Review monitored files list regularly')
+            title: _('⚡ Performance Features'),
+            subtitle: _('• Batch upload technology - all changes in single commit\n• Reduced GitHub API calls for better performance\n• Atomic operations ensure data consistency\n• Single commit hash for complete integrity checking\n• Cleaner repository history with consolidated commits')
         });
         performanceGroup.add(performanceRow);
+        
+        const performanceTipsRow = new Adw.ActionRow({
+            title: _('💡 Performance Tips'),
+            subtitle: _('• Increase Change Sync Delay for rapidly-changing files\n• Use "Backup Only" sync direction for better performance\n• Disable wallpaper syncing if not needed\n• Use longer polling intervals in production\n• Review monitored files list regularly')
+        });
+        performanceGroup.add(performanceTipsRow);
         
         // Repository info group
         const repoGroup = new Adw.PreferencesGroup({
@@ -496,7 +502,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.6')
+            subtitle: _('2.7')
         });
         infoGroup.add(versionRow);
         
@@ -519,7 +525,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         infoGroup.add(descriptionRow);
         
         const dedicationRow = new Adw.ActionRow({
-            title: _('💜 Dedicated to Jupiter 🐱💜'),
+            title: _('💜 Dedicated to Jupiter'),
             subtitle: _('This extension is lovingly dedicated to Jupiter, my amazing cat companion who kept me company during countless hours of coding and debugging.')
         });
         infoGroup.add(dedicationRow);
@@ -568,9 +574,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v27Row = new Adw.ActionRow({
+            title: _('v2.7 (Current)'),
+            subtitle: _('• NEW: Batch upload - all changes in single commit\n• Enhanced integrity checking with single commit hash\n• Improved repository history with consolidated commits\n• Better performance with reduced GitHub API calls\n• Uses Git Data API for atomic commit operations')
+        });
+        changelogGroup.add(v27Row);
+        
         const v26Row = new Adw.ActionRow({
-            title: _('v2.6 (Current)'),
-            subtitle: _('• Renamed "Monitoring" tab to "Sync" for clarity\n• Renamed "Advanced" tab to "Help" for better organization\n• Added heartfelt dedication to Jupiter\n• Improved tab naming for better user experience')
+            title: _('v2.6'),
+            subtitle: _('• Renamed "Monitoring" tab to "Sync" for clarity\n• Renamed "Advanced" tab to "Help" for better organization\n• Added heartfelt dedication to Jupiter\n• Removed "Test GitHub Polling" for cleaner UI\n• Improved tab naming for better user experience')
         });
         changelogGroup.add(v26Row);
         

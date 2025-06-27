@@ -79,12 +79,6 @@ class ConfigSyncIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(remoteChangesItem);
         this._remoteChangesItem = remoteChangesItem;
         
-        let testPollingItem = new PopupMenu.PopupMenuItem(_('Test GitHub Polling'));
-        testPollingItem.connect('activate', () => {
-            this._extension.testGitHubPolling();
-        });
-        this.menu.addMenuItem(testPollingItem);
-        
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         
         let settingsItem = new PopupMenu.PopupMenuItem(_('Settings'));
@@ -261,7 +255,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.6)');
+        log('Gnoming Profiles extension enabled (v2.7)');
     }
     
     disable() {
@@ -880,24 +874,6 @@ export default class ConfigSyncExtension extends Extension {
         });
     }
     
-    testGitHubPolling() {
-        if (!this._indicator) {
-            log('Cannot test GitHub polling: indicator not available');
-            return;
-        }
-        
-        this._indicator.updateStatus(_('Testing GitHub polling...'));
-        log('GitHub polling: Manual test initiated');
-        
-        this._pollGitHubForChanges().then(() => {
-            this._indicator.updateStatus(_('Polling test complete: ') + new Date().toLocaleTimeString());
-            log('GitHub polling: Manual test completed successfully');
-        }).catch(error => {
-            this._indicator.updateStatus(_('Polling test failed: ') + error.message);
-            log(`GitHub polling: Manual test failed: ${error.message}`);
-        });
-    }
-    
     syncFromRemote() {
         if (!this._indicator) {
             log('Cannot sync from remote: indicator not available');
@@ -937,19 +913,13 @@ export default class ConfigSyncExtension extends Extension {
             // Create backup data (without wallpapers in main config)
             const backupData = await this._createBackup();
             
-            // Upload gsettings as JSON (no wallpapers included)
-            await this._uploadToGitHub(backupData, token, username, repo);
+            // Batch upload everything as a single commit
+            await this._batchUploadToGitHub(backupData, token, username, repo);
             
-            // Upload individual files
-            await this._uploadFilesToGitHub(token, username, repo);
+            // Clear wallpaper data after successful upload
+            this._wallpaperData.clear();
             
-            // Upload wallpapers separately if enabled
-            const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
-            if (syncWallpapers) {
-                await this._uploadWallpapersToGitHub(token, username, repo);
-            }
-            
-            log('Successfully synced to GitHub');
+            log('Successfully synced to GitHub in single commit');
         } catch (error) {
             log(`Failed to sync to GitHub: ${error.message}`);
             throw error;
@@ -1169,6 +1139,247 @@ export default class ConfigSyncExtension extends Extension {
                 });
             }
         }
+    }
+    
+    async _batchUploadToGitHub(backupData, token, username, repo) {
+        try {
+            log('Starting batch upload to GitHub...');
+            
+            // Get current repository state
+            const currentState = await this._getCurrentRepoState(token, username, repo);
+            
+            // Prepare all file changes
+            const fileChanges = await this._prepareAllFileChanges(backupData, token, username, repo);
+            
+            if (fileChanges.length === 0) {
+                log('No changes to upload');
+                return;
+            }
+            
+            // Create new tree with all changes
+            const newTree = await this._createGitTree(fileChanges, currentState.treeSha, token, username, repo);
+            
+            // Create single commit with all changes
+            const commitMessage = `Batch config sync ${new Date().toISOString()}`;
+            await this._createGitCommit(commitMessage, newTree.sha, currentState.commitSha, token, username, repo);
+            
+            log(`Batch upload completed - ${fileChanges.length} files in single commit`);
+            
+        } catch (error) {
+            log(`Batch upload failed: ${error.message}`);
+            throw error;
+        }
+    }
+    
+    async _getCurrentRepoState(token, username, repo) {
+        try {
+            // Get the latest commit from main/master branch
+            const branchResponse = await this._makeGitHubRequest(
+                `https://api.github.com/repos/${username}/${repo}/branches/main`,
+                'GET',
+                token
+            );
+            
+            let commitSha, treeSha;
+            
+            if (branchResponse.ok) {
+                const branchData = JSON.parse(branchResponse.data);
+                commitSha = branchData.commit.sha;
+                treeSha = branchData.commit.commit.tree.sha;
+            } else {
+                // Try master branch if main doesn't exist
+                const masterResponse = await this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/branches/master`,
+                    'GET',
+                    token
+                );
+                
+                if (masterResponse.ok) {
+                    const masterData = JSON.parse(masterResponse.data);
+                    commitSha = masterData.commit.sha;
+                    treeSha = masterData.commit.commit.tree.sha;
+                } else {
+                    // Repository is empty, start fresh
+                    commitSha = null;
+                    treeSha = null;
+                }
+            }
+            
+            log(`Current repo state - Commit: ${commitSha ? commitSha.substring(0, 7) : 'none'}, Tree: ${treeSha ? treeSha.substring(0, 7) : 'none'}`);
+            return { commitSha, treeSha };
+            
+        } catch (error) {
+            log(`Failed to get repository state: ${error.message}`);
+            return { commitSha: null, treeSha: null };
+        }
+    }
+    
+    async _prepareAllFileChanges(backupData, token, username, repo) {
+        const changes = [];
+        
+        // 1. Prepare main config file
+        const configContent = JSON.stringify({
+            timestamp: backupData.timestamp,
+            gsettings: backupData.gsettings
+        }, null, 2);
+        
+        changes.push({
+            path: 'config-backup.json',
+            mode: '100644',
+            type: 'blob',
+            content: GLib.base64_encode(new TextEncoder().encode(configContent))
+        });
+        
+        // 2. Prepare individual config files
+        const filePaths = this._settings.get_strv('sync-files');
+        for (const filePath of filePaths) {
+            try {
+                const expandedPath = filePath.replace('~', GLib.get_home_dir());
+                const file = Gio.File.new_for_path(expandedPath);
+                
+                if (!file.query_exists(null)) {
+                    log(`File ${filePath} does not exist, skipping`);
+                    continue;
+                }
+                
+                const [success, contents] = file.load_contents(null);
+                if (!success) {
+                    log(`Failed to read file ${filePath}`);
+                    continue;
+                }
+                
+                // Check if file is text
+                const content = new TextDecoder('utf-8', { fatal: false }).decode(contents);
+                if (content.includes('\uFFFD')) {
+                    log(`Skipping ${filePath}: appears to be binary`);
+                    continue;
+                }
+                
+                const githubPath = `files${filePath.replace('~', '/home')}`;
+                changes.push({
+                    path: githubPath,
+                    mode: '100644',
+                    type: 'blob',
+                    content: GLib.base64_encode(new TextEncoder().encode(content))
+                });
+                
+            } catch (e) {
+                log(`Failed to prepare file ${filePath}: ${e.message}`);
+            }
+        }
+        
+        // 3. Prepare wallpaper files if enabled
+        const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
+        if (syncWallpapers && this._wallpaperData.size > 0) {
+            for (const [wallpaperKey, wallpaperData] of this._wallpaperData) {
+                changes.push({
+                    path: `wallpapers/${wallpaperData.fileName}`,
+                    mode: '100644',
+                    type: 'blob',
+                    content: wallpaperData.content
+                });
+            }
+        }
+        
+        log(`Prepared ${changes.length} file changes for batch upload`);
+        return changes;
+    }
+    
+    async _createGitTree(fileChanges, baseTreeSha, token, username, repo) {
+        const treeData = {
+            tree: fileChanges,
+            ...(baseTreeSha && { base_tree: baseTreeSha })
+        };
+        
+        const response = await this._makeGitHubRequest(
+            `https://api.github.com/repos/${username}/${repo}/git/trees`,
+            'POST',
+            token,
+            treeData
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Failed to create tree: ${response.status} - ${response.data}`);
+        }
+        
+        const tree = JSON.parse(response.data);
+        log(`Created tree: ${tree.sha.substring(0, 7)}`);
+        return tree;
+    }
+    
+    async _createGitCommit(message, treeSha, parentSha, token, username, repo) {
+        const commitData = {
+            message: message,
+            tree: treeSha,
+            ...(parentSha && { parents: [parentSha] })
+        };
+        
+        const response = await this._makeGitHubRequest(
+            `https://api.github.com/repos/${username}/${repo}/git/commits`,
+            'POST',
+            token,
+            commitData
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Failed to create commit: ${response.status} - ${response.data}`);
+        }
+        
+        const commit = JSON.parse(response.data);
+        log(`Created commit: ${commit.sha.substring(0, 7)} - ${message}`);
+        
+        // Update the branch reference to point to the new commit
+        await this._updateBranchReference(commit.sha, token, username, repo);
+        
+        return commit;
+    }
+    
+    async _updateBranchReference(commitSha, token, username, repo) {
+        // Try to update main branch first, then master
+        const branches = ['main', 'master'];
+        
+        for (const branch of branches) {
+            try {
+                const refData = {
+                    sha: commitSha,
+                    force: false
+                };
+                
+                const response = await this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/git/refs/heads/${branch}`,
+                    'PATCH',
+                    token,
+                    refData
+                );
+                
+                if (response.ok) {
+                    log(`Updated ${branch} branch to commit ${commitSha.substring(0, 7)}`);
+                    return;
+                } else if (response.status === 404 && branch === 'main') {
+                    // Try creating main branch if it doesn't exist
+                    const createRefData = {
+                        ref: `refs/heads/${branch}`,
+                        sha: commitSha
+                    };
+                    
+                    const createResponse = await this._makeGitHubRequest(
+                        `https://api.github.com/repos/${username}/${repo}/git/refs`,
+                        'POST',
+                        token,
+                        createRefData
+                    );
+                    
+                    if (createResponse.ok) {
+                        log(`Created ${branch} branch with commit ${commitSha.substring(0, 7)}`);
+                        return;
+                    }
+                }
+            } catch (e) {
+                log(`Failed to update ${branch} branch: ${e.message}`);
+            }
+        }
+        
+        throw new Error('Failed to update any branch reference');
     }
     
     _updateWallpaperUri(originalValue, schema, key) {
@@ -1553,7 +1764,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.6');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.7');
                 
                 if (data) {
                     const json = JSON.stringify(data);

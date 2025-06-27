@@ -16,6 +16,9 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Private Repository**: Uses GitHub private repositories for security
 - **Manual Sync**: Trigger sync manually from the panel indicator
 - **Visual Feedback**: Panel indicator shows sync status and monitoring state
+- **Batch Upload Technology**: All changes uploaded as single commit for better integrity
+- **Atomic Operations**: All changes uploaded together or not at all
+- **Enhanced Verification**: Single commit hash represents complete configuration state
 
 ## Installation
 
@@ -147,6 +150,25 @@ These settings ensure your complete desktop workflow is preserved across devices
 ### **Location After Restore**
 Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 
+## Batch Upload Technology
+
+The extension uses advanced batch upload technology to ensure data integrity and better repository management:
+
+### **Single Commit Benefits**
+- **Comprehensive Hash Checking**: Each sync creates one SHA commit hash that represents your complete configuration state
+- **Atomic Operations**: All changes (GSettings, files, wallpapers) are uploaded together or not at all - no partial syncs
+- **Cleaner Repository History**: Each sync creates one meaningful commit instead of multiple individual file commits
+- **Better Integrity Verification**: You can verify your entire configuration state with a single commit hash
+- **Improved Performance**: Reduced GitHub API calls and faster sync operations
+
+### **How It Works**
+1. **Preparation Phase**: Extension collects all changes (config backup, files, wallpapers)
+2. **Tree Creation**: Uses GitHub's Git Data API to create a tree with all file changes
+3. **Atomic Commit**: Creates a single commit pointing to the complete tree
+4. **Branch Update**: Updates the repository branch to point to the new commit
+
+This ensures that your configuration sync is always consistent and verifiable with a single commit identifier.
+
 ## Configuration Options
 
 ### Change Monitoring Settings
@@ -261,12 +283,14 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 4. Check network connectivity to GitHub
 5. Review polling interval (too frequent may hit rate limits)
 6. Look for "GitHub polling" status in panel menu
+7. Check GNOME logs: `journalctl -f -o cat /usr/bin/gnome-shell`
 
 ### Remote Changes Not Detected
 1. Verify changes were actually committed to the repository
 2. Check that config files (config-backup.json or files/*) were modified
 3. Ensure polling interval has elapsed since the change
 4. Try manual "Sync Now" to test connectivity
+5. Check GNOME logs for polling status
 
 ### Excessive GitHub API Usage
 1. Increase the "Change Sync Delay" in preferences
@@ -304,10 +328,19 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.6 (Current)
+### v2.7 (Current)
+- **NEW: Batch Upload Technology** - All changes (GSettings, files, wallpapers) are now uploaded as a single GitHub commit
+- **Enhanced Integrity Checking** - Single commit hash represents all configuration changes for better verification
+- **Improved Repository History** - Cleaner commit history with consolidated changes instead of multiple individual commits
+- **Better Performance** - Reduced GitHub API calls by batching all uploads into one atomic operation
+- **Git Data API Integration** - Uses GitHub's Git Data API for proper tree creation and atomic commit operations
+- **Comprehensive Hash Verification** - Each sync creates one SHA hash that represents the complete state of all configurations
+
+### v2.6
 - **UI Improvements**: Renamed "Monitoring" tab to "Sync" for better clarity
 - **Help Organization**: Renamed "Advanced" tab to "Help" for improved user experience
 - **Personal Touch**: Added heartfelt dedication to Jupiter in About section
+- **Cleaner Interface**: Removed "Test GitHub Polling" from panel menu for simpler UI
 - **Better UX**: Improved tab naming and organization for easier navigation
 
 ### v2.4
@@ -348,7 +381,6 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 - Added GitHub polling for remote change detection
 - Multi-device sync support with conflict-free operation
 - **FIXED: GitHub polling now works reliably**
-- Manual "Test GitHub Polling" option in panel menu
 - Comprehensive logging for debugging polling issues
 - Reduced default polling interval to 5 minutes (was 15)
 - Simplified commit detection (all commits trigger sync)
