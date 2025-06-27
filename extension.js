@@ -206,6 +206,9 @@ export default class ConfigSyncExtension extends Extension {
         this._isPolling = false;
         this._lastKnownCommit = null;
         this._remoteChangesDetected = false;
+        
+        // Wallpaper tracking
+        this._wallpaperData = new Map();
     }
     
     enable() {
@@ -258,7 +261,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled');
+        log('Gnoming Profiles extension enabled (v2.3)');
     }
     
     disable() {
@@ -285,6 +288,7 @@ export default class ConfigSyncExtension extends Extension {
         
         this._settings = null;
         this._sessionManager = null;
+        this._wallpaperData.clear();
         
         log('Gnoming Profiles extension disabled');
     }
@@ -921,14 +925,20 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         try {
-            // Create backup data
+            // Create backup data (without wallpapers in main config)
             const backupData = await this._createBackup();
             
-            // Upload gsettings as JSON
+            // Upload gsettings as JSON (no wallpapers included)
             await this._uploadToGitHub(backupData, token, username, repo);
             
             // Upload individual files
             await this._uploadFilesToGitHub(token, username, repo);
+            
+            // Upload wallpapers separately if enabled
+            const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
+            if (syncWallpapers) {
+                await this._uploadWallpapersToGitHub(token, username, repo);
+            }
             
             log('Successfully synced to GitHub');
         } catch (error) {
@@ -954,6 +964,12 @@ export default class ConfigSyncExtension extends Extension {
             // Download individual files
             await this._downloadFilesFromGitHub(token, username, repo);
             
+            // Download and restore wallpapers separately if enabled
+            const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
+            if (syncWallpapers) {
+                await this._downloadAndRestoreWallpapers(token, username, repo);
+            }
+            
             // Restore configuration
             if (backupData) {
                 await this._restoreBackup(backupData);
@@ -969,8 +985,7 @@ export default class ConfigSyncExtension extends Extension {
     async _createBackup() {
         const backup = {
             timestamp: new Date().toISOString(),
-            gsettings: {},
-            wallpapers: {}
+            gsettings: {}
         };
         
         // Check if wallpaper syncing is enabled
@@ -1000,21 +1015,9 @@ export default class ConfigSyncExtension extends Extension {
                         const variant = settings.get_value(key);
                         backup.gsettings[schema][key] = variant.print(true);
                         
-                        // Special handling for wallpaper URIs (only if wallpaper syncing is enabled)
-                        if (syncWallpapers && schema === 'org.gnome.desktop.background' && 
-                            (key === 'picture-uri' || key === 'picture-uri-dark')) {
-                            const uri = settings.get_string(key);
-                            if (uri && uri.startsWith('file://')) {
-                                await this._backupWallpaperFile(uri, key, backup);
-                            }
-                        }
-                        
-                        // Handle screensaver wallpaper too (only if wallpaper syncing is enabled)
-                        if (syncWallpapers && schema === 'org.gnome.desktop.screensaver' && key === 'picture-uri') {
-                            const uri = settings.get_string(key);
-                            if (uri && uri.startsWith('file://')) {
-                                await this._backupWallpaperFile(uri, `screensaver-${key}`, backup);
-                            }
+                        // Store wallpaper info separately for uploading (only if wallpaper syncing is enabled)
+                        if (syncWallpapers && this._isWallpaperKey(schema, key)) {
+                            await this._trackWallpaperForUpload(schema, key, settings);
                         }
                     } catch (e) {
                         log(`Failed to backup ${schema}.${key}: ${e.message}`);
@@ -1026,44 +1029,51 @@ export default class ConfigSyncExtension extends Extension {
             }
         }
         
-        // If no wallpapers were backed up, remove the empty wallpapers object
-        if (Object.keys(backup.wallpapers).length === 0) {
-            delete backup.wallpapers;
-        }
-        
         return backup;
     }
     
-    async _backupWallpaperFile(uri, keyName, backup) {
+    _isWallpaperKey(schema, key) {
+        return (schema === 'org.gnome.desktop.background' && 
+                (key === 'picture-uri' || key === 'picture-uri-dark')) ||
+               (schema === 'org.gnome.desktop.screensaver' && key === 'picture-uri');
+    }
+    
+    async _trackWallpaperForUpload(schema, key, settings) {
         try {
-            const filePath = uri.replace('file://', '');
-            const file = Gio.File.new_for_path(filePath);
-            
-            if (!file.query_exists(null)) {
-                log(`Wallpaper file not found: ${filePath}`);
-                return;
+            const uri = settings.get_string(key);
+            if (uri && uri.startsWith('file://')) {
+                const filePath = uri.replace('file://', '');
+                const file = Gio.File.new_for_path(filePath);
+                
+                if (!file.query_exists(null)) {
+                    log(`Wallpaper file not found: ${filePath}`);
+                    return;
+                }
+                
+                // Read the wallpaper file
+                const [success, contents] = file.load_contents(null);
+                if (!success) {
+                    log(`Failed to read wallpaper file: ${filePath}`);
+                    return;
+                }
+                
+                // Store wallpaper info for upload
+                const fileName = file.get_basename();
+                const wallpaperKey = `${schema}-${key}`;
+                
+                this._wallpaperData.set(wallpaperKey, {
+                    originalPath: filePath,
+                    fileName: fileName,
+                    content: GLib.base64_encode(contents),
+                    size: contents.length,
+                    schema: schema,
+                    key: key
+                });
+                
+                log(`Tracked wallpaper for upload: ${fileName} (${contents.length} bytes) for ${wallpaperKey}`);
             }
-            
-            // Read the wallpaper file (even though it's binary)
-            const [success, contents] = file.load_contents(null);
-            if (!success) {
-                log(`Failed to read wallpaper file: ${filePath}`);
-                return;
-            }
-            
-            // Store wallpaper info
-            const fileName = file.get_basename();
-            backup.wallpapers[keyName] = {
-                originalPath: filePath,
-                fileName: fileName,
-                content: GLib.base64_encode(contents),
-                size: contents.length
-            };
-            
-            log(`Backed up wallpaper: ${fileName} (${contents.length} bytes) for ${keyName}`);
-            
         } catch (e) {
-            log(`Failed to backup wallpaper file ${uri}: ${e.message}`);
+            log(`Failed to track wallpaper ${schema}.${key}: ${e.message}`);
         }
     }
     
@@ -1085,13 +1095,6 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         try {
-            // Restore wallpaper files first (if wallpaper syncing is enabled and wallpapers exist)
-            if (syncWallpapers && backup.wallpapers) {
-                await this._restoreWallpaperFiles(backup.wallpapers);
-            } else if (!syncWallpapers && backup.wallpapers) {
-                log('Wallpaper syncing disabled, skipping wallpaper restore');
-            }
-            
             // Restore gsettings
             for (const [schema, keys] of Object.entries(backup.gsettings)) {
                 // Skip wallpaper schemas if wallpaper syncing is disabled
@@ -1107,14 +1110,8 @@ export default class ConfigSyncExtension extends Extension {
                     for (const [key, value] of Object.entries(keys)) {
                         try {
                             // Special handling for wallpaper URIs (only if wallpaper syncing is enabled)
-                            if (syncWallpapers && schema === 'org.gnome.desktop.background' && 
-                                (key === 'picture-uri' || key === 'picture-uri-dark')) {
-                                const updatedValue = this._updateWallpaperUri(value, key, backup.wallpapers);
-                                const variant = GLib.Variant.parse(null, updatedValue, null, null);
-                                settings.set_value(key, variant);
-                                restoredKeys++;
-                            } else if (syncWallpapers && schema === 'org.gnome.desktop.screensaver' && key === 'picture-uri') {
-                                const updatedValue = this._updateWallpaperUri(value, `screensaver-${key}`, backup.wallpapers);
+                            if (syncWallpapers && this._isWallpaperKey(schema, key)) {
+                                const updatedValue = this._updateWallpaperUri(value, schema, key);
                                 const variant = GLib.Variant.parse(null, updatedValue, null, null);
                                 settings.set_value(key, variant);
                                 restoredKeys++;
@@ -1147,49 +1144,7 @@ export default class ConfigSyncExtension extends Extension {
         }
     }
     
-    async _restoreWallpaperFiles(wallpapers) {
-        const wallpaperDir = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'share', 'gnoming-profiles', 'wallpapers']);
-        
-        // Create wallpaper directory if it doesn't exist
-        const wallpaperDirFile = Gio.File.new_for_path(wallpaperDir);
-        if (!wallpaperDirFile.query_exists(null)) {
-            try {
-                wallpaperDirFile.make_directory_with_parents(null);
-                log(`Created wallpaper directory: ${wallpaperDir}`);
-            } catch (e) {
-                log(`Failed to create wallpaper directory: ${e.message}`);
-                return;
-            }
-        }
-        
-        for (const [keyName, wallpaperData] of Object.entries(wallpapers)) {
-            try {
-                const fileName = wallpaperData.fileName;
-                const newPath = GLib.build_filenamev([wallpaperDir, fileName]);
-                const file = Gio.File.new_for_path(newPath);
-                
-                // Decode and write the wallpaper file
-                const contents = GLib.base64_decode(wallpaperData.content);
-                file.replace_contents(
-                    contents,
-                    null,
-                    false,
-                    Gio.FileCreateFlags.REPLACE_DESTINATION,
-                    null
-                );
-                
-                log(`Restored wallpaper: ${fileName} to ${newPath} (${contents.length} bytes)`);
-                
-                // Store the new path for URI updating
-                wallpaperData.newPath = newPath;
-                
-            } catch (e) {
-                log(`Failed to restore wallpaper ${keyName}: ${e.message}`);
-            }
-        }
-    }
-    
-    _updateWallpaperUri(originalValue, keyName, wallpapers) {
+    _updateWallpaperUri(originalValue, schema, key) {
         // Parse the original value to extract the URI
         const match = originalValue.match(/'([^']*)'/);
         if (!match) {
@@ -1197,12 +1152,13 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         const originalUri = match[1];
-        const wallpaperData = wallpapers[keyName];
+        const wallpaperKey = `${schema}-${key}`;
+        const wallpaperData = this._wallpaperData.get(wallpaperKey);
         
         if (wallpaperData && wallpaperData.newPath) {
             const newUri = `file://${wallpaperData.newPath}`;
             const updatedValue = originalValue.replace(originalUri, newUri);
-            log(`Updated wallpaper URI for ${keyName}: ${originalUri} -> ${newUri}`);
+            log(`Updated wallpaper URI for ${wallpaperKey}: ${originalUri} -> ${newUri}`);
             return updatedValue;
         }
         
@@ -1210,19 +1166,11 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     async _uploadToGitHub(data, token, username, repo) {
-        // Check if wallpaper syncing is enabled
-        const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
-        
-        // Upload gsettings and wallpaper metadata to the main config file
+        // Upload only gsettings to the main config file (no wallpapers)
         const configData = {
             timestamp: data.timestamp,
             gsettings: data.gsettings
         };
-        
-        // Only include wallpapers if syncing is enabled and wallpapers exist
-        if (syncWallpapers && data.wallpapers) {
-            configData.wallpapers = data.wallpapers;
-        }
         
         const content = JSON.stringify(configData, null, 2);
         const encodedContent = GLib.base64_encode(new TextEncoder().encode(content));
@@ -1262,16 +1210,18 @@ export default class ConfigSyncExtension extends Extension {
             throw new Error(`GitHub upload failed: ${response.status} - ${response.data}`);
         }
         
-        // Upload wallpaper files separately (only if wallpaper syncing is enabled)
-        if (syncWallpapers && data.wallpapers) {
-            await this._uploadWallpapersToGitHub(data.wallpapers, token, username, repo);
-        } else if (!syncWallpapers) {
-            log('Wallpaper syncing disabled, skipping wallpaper upload');
-        }
+        log('Config backup uploaded to GitHub (wallpapers handled separately)');
     }
     
-    async _uploadWallpapersToGitHub(wallpapers, token, username, repo) {
-        for (const [keyName, wallpaperData] of Object.entries(wallpapers)) {
+    async _uploadWallpapersToGitHub(token, username, repo) {
+        if (this._wallpaperData.size === 0) {
+            log('No wallpapers to upload');
+            return;
+        }
+        
+        log(`Uploading ${this._wallpaperData.size} wallpapers to GitHub`);
+        
+        for (const [wallpaperKey, wallpaperData] of this._wallpaperData) {
             try {
                 const githubPath = `wallpapers/${wallpaperData.fileName}`;
                 log(`Uploading wallpaper: ${wallpaperData.fileName} to ${githubPath}`);
@@ -1314,8 +1264,100 @@ export default class ConfigSyncExtension extends Extension {
                 }
                 
             } catch (e) {
-                log(`Failed to upload wallpaper ${keyName}: ${e.message}`);
+                log(`Failed to upload wallpaper ${wallpaperKey}: ${e.message}`);
             }
+        }
+        
+        // Clear wallpaper data after upload
+        this._wallpaperData.clear();
+    }
+    
+    async _downloadAndRestoreWallpapers(token, username, repo) {
+        try {
+            // Get list of wallpapers from GitHub
+            const response = await this._makeGitHubRequest(
+                `https://api.github.com/repos/${username}/${repo}/contents/wallpapers`,
+                'GET',
+                token
+            );
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    log('No wallpapers folder found in repository');
+                    return;
+                }
+                throw new Error(`Failed to list wallpapers: ${response.status}`);
+            }
+            
+            const wallpaperFiles = JSON.parse(response.data);
+            if (!Array.isArray(wallpaperFiles) || wallpaperFiles.length === 0) {
+                log('No wallpapers found in repository');
+                return;
+            }
+            
+            log(`Found ${wallpaperFiles.length} wallpapers in repository`);
+            
+            // Create wallpaper directory if it doesn't exist
+            const wallpaperDir = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'share', 'gnoming-profiles', 'wallpapers']);
+            const wallpaperDirFile = Gio.File.new_for_path(wallpaperDir);
+            if (!wallpaperDirFile.query_exists(null)) {
+                try {
+                    wallpaperDirFile.make_directory_with_parents(null);
+                    log(`Created wallpaper directory: ${wallpaperDir}`);
+                } catch (e) {
+                    log(`Failed to create wallpaper directory: ${e.message}`);
+                    return;
+                }
+            }
+            
+            // Download each wallpaper file
+            for (const fileInfo of wallpaperFiles) {
+                if (fileInfo.type !== 'file') continue;
+                
+                try {
+                    log(`Downloading wallpaper: ${fileInfo.name}`);
+                    
+                    const fileResponse = await this._makeGitHubRequest(
+                        fileInfo.download_url || fileInfo.url,
+                        'GET',
+                        token
+                    );
+                    
+                    if (fileResponse.ok) {
+                        const fileData = JSON.parse(fileResponse.data);
+                        const content = GLib.base64_decode(fileData.content);
+                        
+                        // Save wallpaper file
+                        const newPath = GLib.build_filenamev([wallpaperDir, fileInfo.name]);
+                        const file = Gio.File.new_for_path(newPath);
+                        
+                        file.replace_contents(
+                            content,
+                            null,
+                            false,
+                            Gio.FileCreateFlags.REPLACE_DESTINATION,
+                            null
+                        );
+                        
+                        log(`Restored wallpaper: ${fileInfo.name} to ${newPath}`);
+                        
+                        // Store the mapping for URI updates
+                        this._wallpaperData.set(fileInfo.name, {
+                            newPath: newPath,
+                            fileName: fileInfo.name
+                        });
+                        
+                    } else {
+                        log(`Failed to download wallpaper ${fileInfo.name}: ${fileResponse.status}`);
+                    }
+                    
+                } catch (e) {
+                    log(`Failed to download wallpaper ${fileInfo.name}: ${e.message}`);
+                }
+            }
+            
+        } catch (error) {
+            log(`Failed to download wallpapers: ${error.message}`);
         }
     }
     
@@ -1420,50 +1462,8 @@ export default class ConfigSyncExtension extends Extension {
         const content = new TextDecoder().decode(GLib.base64_decode(fileData.content));
         const backup = JSON.parse(content);
         
-        // Check if wallpaper syncing is enabled
-        const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
-        
-        // Download wallpaper files if they exist and wallpaper syncing is enabled
-        if (syncWallpapers && backup.wallpapers) {
-            await this._downloadWallpapersFromGitHub(backup.wallpapers, token, username, repo);
-        } else if (!syncWallpapers && backup.wallpapers) {
-            log('Wallpaper syncing disabled, skipping wallpaper download');
-            // Remove wallpapers from backup so restore doesn't try to use them
-            delete backup.wallpapers;
-        }
-        
+        log('Downloaded main config from GitHub (wallpapers handled separately)');
         return backup;
-    }
-    
-    async _downloadWallpapersFromGitHub(wallpapers, token, username, repo) {
-        for (const [keyName, wallpaperData] of Object.entries(wallpapers)) {
-            try {
-                const githubPath = `wallpapers/${wallpaperData.fileName}`;
-                log(`Downloading wallpaper from ${githubPath}`);
-                
-                const response = await this._makeGitHubRequest(
-                    `https://api.github.com/repos/${username}/${repo}/contents/${githubPath}`,
-                    'GET',
-                    token
-                );
-                
-                if (response.ok) {
-                    const fileData = JSON.parse(response.data);
-                    // Update the wallpaper data with the downloaded content
-                    wallpaperData.content = fileData.content;
-                    log(`Successfully downloaded wallpaper: ${wallpaperData.fileName}`);
-                } else if (response.status === 404) {
-                    log(`Wallpaper ${githubPath} not found in repository, skipping`);
-                    // Remove this wallpaper from the list since it's not available
-                    delete wallpapers[keyName];
-                } else {
-                    log(`Failed to download wallpaper ${githubPath}: ${response.status}`);
-                }
-                
-            } catch (e) {
-                log(`Failed to download wallpaper ${keyName}: ${e.message}`);
-            }
-        }
     }
     
     async _downloadFilesFromGitHub(token, username, repo) {
@@ -1526,7 +1526,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/1.0');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.3');
                 
                 if (data) {
                     const json = JSON.stringify(data);

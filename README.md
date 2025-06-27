@@ -160,7 +160,7 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 In your GitHub repository, you'll find:
 
 ```
-config-backup.json          # GSettings backup in JSON format
+config-backup.json          # GSettings backup in JSON format (wallpapers excluded)
 files/
   home/
     [username]/
@@ -265,7 +265,16 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.2 (Current)
+### v2.3 (Current)
+- **BREAKING CHANGE: Wallpaper storage optimization**
+- Wallpapers are now stored ONLY in the `wallpapers/` folder in the repository
+- Wallpaper data is no longer included in the main `config-backup.json` file
+- This reduces the size of the main config file and improves sync performance
+- Wallpaper syncing continues to work exactly the same for end users
+- Improved separation of concerns between settings and binary data
+- Better repository organization with cleaner main config file
+
+### v2.2
 - **NEW: Optional wallpaper syncing support**
 - Wallpaper syncing disabled by default (enable in preferences)
 - Automatically syncs desktop and lock screen wallpapers when enabled

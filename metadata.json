@@ -2,7 +2,7 @@
     "uuid": "gnoming-profiles@gavindi.github.com",
     "name": "Gnoming Profiles",
     "description": "Sync gsettings and user config files to GitHub",
-    "version": 1,
+    "version": 2.3,
     "shell-version": ["45", "46", "47", "48"],
     "url": "https://github.com/yourusername/gnome-config-sync",
     "settings-schema": "org.gnome.shell.extensions.gnoming-profiles"
