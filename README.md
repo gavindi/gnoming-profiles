@@ -265,7 +265,16 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.3 (Current)
+### v2.4 (Current)
+- **NEW: Organized preferences interface with logical tabs**
+- Added comprehensive About tab with extension information
+- Reorganized settings into General, Monitoring, Content, Advanced, and About tabs
+- Improved user experience with better categorization of options
+- Added troubleshooting guides and performance tips
+- Enhanced help documentation within preferences
+- Better visual organization of all settings
+
+### v2.3
 - **BREAKING CHANGE: Wallpaper storage optimization**
 - Wallpapers are now stored ONLY in the `wallpapers/` folder in the repository
 - Wallpaper data is no longer included in the main `config-backup.json` file
