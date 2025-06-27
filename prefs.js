@@ -334,12 +334,26 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_strv('gsettings-schemas', schemas);
         });
         
-        // Example schemas
-        const exampleSchemasRow = new Adw.ActionRow({
-            title: _('📋 Example Schemas'),
-            subtitle: _('org.gnome.desktop.interface\norg.gnome.desktop.wm.preferences\norg.gnome.shell\norg.gnome.mutter')
+        // Core schemas info
+        const coreSchemasRow = new Adw.ActionRow({
+            title: _('🏠 Core Desktop Schemas'),
+            subtitle: _('org.gnome.desktop.interface (themes, fonts)\norg.gnome.desktop.wm.preferences (window manager)\norg.gnome.shell (shell settings)')
         });
-        schemasGroup.add(exampleSchemasRow);
+        schemasGroup.add(coreSchemasRow);
+        
+        // Multitasking schemas info
+        const multitaskingSchemasRow = new Adw.ActionRow({
+            title: _('🪟 Multitasking & Workspaces'),
+            subtitle: _('org.gnome.mutter (workspace behavior)\norg.gnome.desktop.wm.keybindings (workspace shortcuts)\norg.gnome.shell.window-switcher (Alt+Tab)\norg.gnome.shell.app-switcher (Super+Tab)')
+        });
+        schemasGroup.add(multitaskingSchemasRow);
+        
+        // Ubuntu schemas info
+        const ubuntuSchemasRow = new Adw.ActionRow({
+            title: _('🟠 Ubuntu Desktop Extensions'),
+            subtitle: _('org.gnome.shell.extensions.ubuntu-dock (Ubuntu dock)\norg.gnome.shell.extensions.ubuntu-appindicators (system tray)\norg.gnome.shell.extensions.desktop-icons-ng (desktop icons)\ncom.ubuntu.update-notifier (update settings)')
+        });
+        schemasGroup.add(ubuntuSchemasRow);
         
         // Files to sync group
         const filesGroup = new Adw.PreferencesGroup({
@@ -550,7 +564,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const v24Row = new Adw.ActionRow({
             title: _('v2.4 (Current)'),
-            subtitle: _('• NEW: Organized preferences into logical tabs\n• Added comprehensive About section\n• Improved settings organization\n• Better user experience with categorized options')
+            subtitle: _('• NEW: Organized preferences into logical tabs\n• Added comprehensive About section\n• NEW: Default support for GNOME multitasking schemas\n• NEW: Default support for Ubuntu desktop extensions\n• Improved settings organization and user experience')
         });
         changelogGroup.add(v24Row);
         

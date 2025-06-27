@@ -64,7 +64,7 @@
       <description>Include desktop and lock screen wallpapers in sync (may be large files)</description>
     </key>
     <key name="gsettings-schemas" type="as">
-      <default>["org.gnome.desktop.interface", "org.gnome.desktop.wm.preferences", "org.gnome.shell"]</default>
+      <default>["org.gnome.desktop.interface", "org.gnome.desktop.wm.preferences", "org.gnome.shell", "org.gnome.mutter", "org.gnome.desktop.wm.keybindings", "org.gnome.shell.window-switcher", "org.gnome.shell.app-switcher", "org.gnome.shell.extensions.dash-to-dock", "org.gnome.shell.extensions.ubuntu-dock", "org.gnome.shell.extensions.ubuntu-appindicators", "org.gnome.shell.extensions.desktop-icons-ng", "org.gnome.shell.extensions.ding", "com.ubuntu.update-notifier"]</default>
       <summary>GSettings Schemas</summary>
       <description>List of GSettings schemas to monitor and sync</description>
     </key>

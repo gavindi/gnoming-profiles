@@ -8,6 +8,8 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Real-time Change Monitoring**: Automatically sync when files or settings change
 - **GitHub Polling**: Check GitHub repository for remote changes from other devices
 - **GSettings Support**: Monitor and sync any GSettings schema in real-time
+- **Multitasking & Workspaces**: Full sync of GNOME workspace and window management settings
+- **Ubuntu Desktop Support**: Automatic sync of Ubuntu-specific desktop extensions and settings
 - **Wallpaper Sync**: Optionally sync desktop and lock screen wallpapers
 - **File Monitoring**: Watch configuration files for changes and sync automatically
 - **Smart Debouncing**: Configurable delay to prevent excessive syncing
@@ -61,13 +63,30 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 
 ## Default Monitored Items
 
-- **GSettings**: 
-  - `org.gnome.desktop.interface` (theme, fonts, etc.)
+- **Core Desktop GSettings**: 
+  - `org.gnome.desktop.interface` (theme, fonts, accessibility)
   - `org.gnome.desktop.wm.preferences` (window manager settings)
-  - `org.gnome.shell` (shell preferences)
-  - `org.gnome.desktop.background` (desktop wallpaper - when wallpaper sync enabled)
-  - `org.gnome.desktop.screensaver` (lock screen wallpaper - when wallpaper sync enabled)
-- **Files**: 
+  - `org.gnome.shell` (shell preferences and extensions)
+
+- **Multitasking & Workspaces**:
+  - `org.gnome.mutter` (workspace behavior, animations, window management)
+  - `org.gnome.desktop.wm.keybindings` (workspace switching shortcuts)
+  - `org.gnome.shell.window-switcher` (Alt+Tab behavior and appearance)
+  - `org.gnome.shell.app-switcher` (Super+Tab application switching)
+
+- **Ubuntu Desktop Extensions** (when available):
+  - `org.gnome.shell.extensions.ubuntu-dock` (Ubuntu's dock configuration)
+  - `org.gnome.shell.extensions.ubuntu-appindicators` (system tray indicators)
+  - `org.gnome.shell.extensions.desktop-icons-ng` (desktop icons behavior)
+  - `org.gnome.shell.extensions.ding` (desktop icons new generation)
+  - `org.gnome.shell.extensions.dash-to-dock` (dash-to-dock extension)
+  - `com.ubuntu.update-notifier` (Ubuntu update notification settings)
+
+- **Wallpaper Settings** (when wallpaper sync enabled):
+  - `org.gnome.desktop.background` (desktop wallpaper)
+  - `org.gnome.desktop.screensaver` (lock screen wallpaper)
+
+- **Configuration Files**: 
   - `~/.bashrc` (bash configuration)
   - `~/.gitconfig` (git configuration)
   - `~/.vimrc` (vim configuration)
@@ -95,6 +114,24 @@ Wallpaper syncing is **disabled by default** but can be enabled in preferences. 
 2. **Backup**: Wallpaper image files are encoded and uploaded to GitHub
 3. **Restore**: Files are downloaded to `~/.local/share/gnoming-profiles/wallpapers/`
 4. **Update**: GSettings are updated to point to the restored wallpaper files
+
+### **What Gets Synced with New Default Schemas**
+
+**GNOME Multitasking & Workspaces:**
+- **Workspace Behavior**: Number of workspaces, dynamic/static workspaces, workspace switching animations
+- **Window Management**: Hot corner settings, window focus behavior, edge tiling
+- **Keyboard Shortcuts**: All workspace switching shortcuts (Ctrl+Alt+Arrow, Super+Page Up/Down, etc.)
+- **Window Switching**: Alt+Tab appearance, behavior, and application grouping
+- **Application Switching**: Super+Tab behavior and visual settings
+
+**Ubuntu Desktop Extensions:**
+- **Ubuntu Dock**: Position, size, auto-hide behavior, icon click actions
+- **System Tray**: Legacy application indicators, system indicator behavior
+- **Desktop Icons**: Show/hide desktop icons, icon arrangement, trash/home icons
+- **Update Notifications**: Ubuntu update notification preferences
+- **Dash to Dock**: If installed, all dock customization settings
+
+These settings ensure your complete desktop workflow is preserved across devices, including your workspace setup, window management preferences, and Ubuntu-specific customizations.
 
 ### **Considerations**
 - **File Size**: Wallpaper files can be large (1-10MB+ each)
@@ -249,6 +286,8 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - Personal access token with repo permissions
 - Write access to monitored configuration files
 
+**Note**: Ubuntu-specific schemas (ubuntu-dock, ubuntu-appindicators, etc.) are only synced when the corresponding extensions are installed and active. The extension gracefully handles missing schemas without errors.
+
 ## Bug Reporting
 
 Bugs should be reported to the Github bug tracker [https://github.com/gavindi/gnoming-profiles/issues](https://github.com/gavindi/gnoming-profiles/issues).
@@ -269,10 +308,16 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 - **NEW: Organized preferences interface with logical tabs**
 - Added comprehensive About tab with extension information
 - Reorganized settings into General, Monitoring, Content, Advanced, and About tabs
-- Improved user experience with better categorization of options
-- Added troubleshooting guides and performance tips
-- Enhanced help documentation within preferences
-- Better visual organization of all settings
+- **NEW: Default support for GNOME multitasking and workspace schemas**
+- **NEW: Default support for Ubuntu desktop extension schemas**
+- Enhanced default schema list includes:
+  - Workspace management (`org.gnome.mutter`)
+  - Window switching (`org.gnome.shell.window-switcher`, `org.gnome.shell.app-switcher`)
+  - Workspace keybindings (`org.gnome.desktop.wm.keybindings`)
+  - Ubuntu dock and indicators (`org.gnome.shell.extensions.ubuntu-*`)
+  - Desktop icons extensions (`org.gnome.shell.extensions.desktop-icons-ng`)
+- Improved user experience with better categorization and built-in help
+- Added troubleshooting guides and performance tips within preferences
 
 ### v2.3
 - **BREAKING CHANGE: Wallpaper storage optimization**

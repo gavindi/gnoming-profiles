@@ -372,6 +372,15 @@ export default class ConfigSyncExtension extends Extension {
     
     _setupGSettingsMonitor(schema) {
         try {
+            // Check if schema exists before trying to access it
+            const schemaSource = Gio.SettingsSchemaSource.get_default();
+            const schemaObj = schemaSource.lookup(schema, false);
+            
+            if (!schemaObj) {
+                log(`Schema ${schema} not found, skipping (extension may not be installed)`);
+                return;
+            }
+            
             const settings = new Gio.Settings({schema: schema});
             
             const handlerId = settings.connect('changed', (settings, key) => {
@@ -1006,6 +1015,15 @@ export default class ConfigSyncExtension extends Extension {
         
         for (const schema of allSchemas) {
             try {
+                // Check if schema exists before trying to access it
+                const schemaSource = Gio.SettingsSchemaSource.get_default();
+                const schemaObj = schemaSource.lookup(schema, false);
+                
+                if (!schemaObj) {
+                    log(`Schema ${schema} not found during backup, skipping (extension may not be installed)`);
+                    continue;
+                }
+                
                 const settings = new Gio.Settings({schema: schema});
                 const keys = settings.list_keys();
                 backup.gsettings[schema] = {};
@@ -1104,6 +1122,15 @@ export default class ConfigSyncExtension extends Extension {
                 }
                 
                 try {
+                    // Check if schema exists before trying to access it
+                    const schemaSource = Gio.SettingsSchemaSource.get_default();
+                    const schemaObj = schemaSource.lookup(schema, false);
+                    
+                    if (!schemaObj) {
+                        log(`Schema ${schema} not found during restore, skipping (extension may not be installed)`);
+                        continue;
+                    }
+                    
                     const settings = new Gio.Settings({schema: schema});
                     let restoredKeys = 0;
                     
