@@ -79,12 +79,6 @@ class ConfigSyncIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(remoteChangesItem);
         this._remoteChangesItem = remoteChangesItem;
         
-        let testPollingItem = new PopupMenu.PopupMenuItem(_('Test GitHub Polling'));
-        testPollingItem.connect('activate', () => {
-            this._extension.testGitHubPolling();
-        });
-        this.menu.addMenuItem(testPollingItem);
-        
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         
         let settingsItem = new PopupMenu.PopupMenuItem(_('Settings'));
@@ -261,7 +255,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.6)');
+        log('Gnoming Profiles extension enabled (v2.7)');
     }
     
     disable() {
@@ -877,24 +871,6 @@ export default class ConfigSyncExtension extends Extension {
             this._indicator.stopSyncAnimation();
             this._indicator.updateStatus(_('Sync failed: ') + error.message);
             log(`Sync error: ${error.message}`);
-        });
-    }
-    
-    testGitHubPolling() {
-        if (!this._indicator) {
-            log('Cannot test GitHub polling: indicator not available');
-            return;
-        }
-        
-        this._indicator.updateStatus(_('Testing GitHub polling...'));
-        log('GitHub polling: Manual test initiated');
-        
-        this._pollGitHubForChanges().then(() => {
-            this._indicator.updateStatus(_('Polling test complete: ') + new Date().toLocaleTimeString());
-            log('GitHub polling: Manual test completed successfully');
-        }).catch(error => {
-            this._indicator.updateStatus(_('Polling test failed: ') + error.message);
-            log(`GitHub polling: Manual test failed: ${error.message}`);
         });
     }
     
@@ -1553,7 +1529,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.6');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.7');
                 
                 if (data) {
                     const json = JSON.stringify(data);

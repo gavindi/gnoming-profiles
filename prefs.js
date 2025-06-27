@@ -249,7 +249,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const pollingTipsRow = new Adw.ActionRow({
             title: _('💡 GitHub Polling Tips'),
-            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Use "Test GitHub Polling" in panel menu\n• Set 1-2 minutes for testing, 15+ for production')
+            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Set 1-2 minutes for testing, 15+ for production\n• Remote changes detected automatically')
         });
         tipsGroup.add(pollingTipsRow);
     }
@@ -430,7 +430,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const troubleshootingRow = new Adw.ActionRow({
             title: _('🚨 Troubleshooting Steps'),
-            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Test with "Test GitHub Polling" in panel menu\n4. Check logs for error messages\n5. Try disabling/re-enabling extension')
+            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for status information\n4. Check logs for error messages\n5. Try disabling/re-enabling extension')
         });
         debugGroup.add(troubleshootingRow);
         
@@ -496,7 +496,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.6')
+            subtitle: _('2.7')
         });
         infoGroup.add(versionRow);
         
@@ -568,8 +568,14 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v27Row = new Adw.ActionRow({
+            title: _('v2.7 (Current)'),
+            subtitle: _('• Removed "Test GitHub Polling" from panel menu\n• Cleaned up UI by removing debugging options\n• Simplified menu interface for better user experience\n• Focus on production-ready features only')
+        });
+        changelogGroup.add(v27Row);
+        
         const v26Row = new Adw.ActionRow({
-            title: _('v2.6 (Current)'),
+            title: _('v2.6'),
             subtitle: _('• Renamed "Monitoring" tab to "Sync" for clarity\n• Renamed "Advanced" tab to "Help" for better organization\n• Added heartfelt dedication to Jupiter\n• Improved tab naming for better user experience')
         });
         changelogGroup.add(v26Row);
@@ -586,12 +592,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         changelogGroup.add(v23Row);
         
-        const v22Row = new Adw.ActionRow({
-            title: _('v2.2'),
-            subtitle: _('• NEW: Optional wallpaper syncing support\n• Wallpaper syncing disabled by default\n• Automatic wallpaper detection and sync\n• Smart wallpaper restoration')
-        });
-        changelogGroup.add(v22Row);
-        
         // Help group
         const helpGroup = new Adw.PreferencesGroup({
             title: _('Getting Started'),
@@ -600,7 +600,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const setupRow = new Adw.ActionRow({
             title: _('🚀 Quick Setup'),
-            subtitle: _('1. Create a private GitHub repository\n2. Generate a Personal Access Token (repo permissions)\n3. Configure credentials in General tab\n4. Add schemas and files in Content tab\n5. Enable monitoring in Monitoring tab')
+            subtitle: _('1. Create a private GitHub repository\n2. Generate a Personal Access Token (repo permissions)\n3. Configure credentials in General tab\n4. Add schemas and files in Content tab\n5. Enable monitoring in Sync tab')
         });
         helpGroup.add(setupRow);
         

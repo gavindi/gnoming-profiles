@@ -50,7 +50,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Smart Debouncing**: Configurable delay (1-300 seconds) to prevent excessive syncing
 - **Sync Direction**: Choose between backup-only or bidirectional sync for changes
 
-### GitHub Polling (NEW!)
+### GitHub Polling
 - **Remote Change Detection**: Periodically checks GitHub for commits from other devices
 - **Smart Filtering**: Only syncs when configuration files are actually changed
 - **Configurable Interval**: Poll every 1-1440 minutes (default: 15 minutes)
@@ -304,7 +304,13 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.6 (Current)
+### v2.7 (Current)
+- **UI Cleanup**: Removed "Test GitHub Polling" from panel menu
+- Simplified menu interface for better user experience
+- Cleaned up debugging options to focus on production features
+- GitHub polling functionality remains available through automatic polling
+
+### v2.6
 - **UI Improvements**: Renamed "Monitoring" tab to "Sync" for better clarity
 - **Help Organization**: Renamed "Advanced" tab to "Help" for improved user experience
 - **Personal Touch**: Added heartfelt dedication to Jupiter in About section
