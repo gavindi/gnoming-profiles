@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.gnoming-profiles" path="/org/gnome/shell/extensions/gnoming-profiles/">
+    <key name="github-username" type="s">
+      <default>""</default>
+      <summary>GitHub Username</summary>
+      <description>Your GitHub username for repository access</description>
+    </key>
+    <key name="github-repo" type="s">
+      <default>""</default>
+      <summary>GitHub Repository</summary>
+      <description>Name of the private repository to use for config sync</description>
+    </key>
+    <key name="github-token" type="s">
+      <default>""</default>
+      <summary>GitHub Personal Access Token</summary>
+      <description>Personal access token with repo permissions</description>
+    </key>
+    <key name="auto-sync-on-login" type="b">
+      <default>true</default>
+      <summary>Auto-sync on Login</summary>
+      <description>Automatically restore configuration when logging in</description>
+    </key>
+    <key name="auto-sync-on-logout" type="b">
+      <default>true</default>
+      <summary>Auto-sync on Logout</summary>
+      <description>Automatically backup configuration when logging out</description>
+    </key>
+    <key name="auto-sync-on-change" type="b">
+      <default>false</default>
+      <summary>Auto-sync on Changes</summary>
+      <description>Automatically sync when monitored files or settings change</description>
+    </key>
+    <key name="change-sync-delay" type="i">
+      <range min="1" max="300"/>
+      <default>5</default>
+      <summary>Change Sync Delay</summary>
+      <description>Seconds to wait after a change before syncing (debouncing)</description>
+    </key>
+    <key name="change-sync-bidirectional" type="b">
+      <default>false</default>
+      <summary>Bidirectional Change Sync</summary>
+      <description>Whether change sync should be bidirectional (backup and restore) or backup only</description>
+    </key>
+    <key name="github-polling-enabled" type="b">
+      <default>false</default>
+      <summary>Enable GitHub Polling</summary>
+      <description>Periodically check GitHub repository for remote changes</description>
+    </key>
+    <key name="github-polling-interval" type="i">
+      <range min="1" max="1440"/>
+      <default>5</default>
+      <summary>GitHub Polling Interval</summary>
+      <description>How often to poll GitHub for changes (in minutes)</description>
+    </key>
+    <key name="auto-sync-remote-changes" type="b">
+      <default>true</default>
+      <summary>Auto-sync Remote Changes</summary>
+      <description>Automatically download and apply changes when detected via polling</description>
+    </key>
+    <key name="sync-wallpapers" type="b">
+      <default>false</default>
+      <summary>Sync Wallpapers</summary>
+      <description>Include desktop and lock screen wallpapers in sync (may be large files)</description>
+    </key>
+    <key name="gsettings-schemas" type="as">
+      <default>["org.gnome.desktop.interface", "org.gnome.desktop.wm.preferences", "org.gnome.shell"]</default>
+      <summary>GSettings Schemas</summary>
+      <description>List of GSettings schemas to monitor and sync</description>
+    </key>
+    <key name="sync-files" type="as">
+      <default>["~/.bashrc", "~/.gitconfig", "~/.vimrc", "~/.config/gtk-3.0/bookmarks", "~/.config/gtk-3.0/servers", "~/.config/gtk-3.0/settings.ini", "~/.config/gtk-4.0/servers"]</default>
+      <summary>Files to Monitor and Sync</summary>
+      <description>List of files to monitor for changes and sync to the repository</description>
+    </key>
+  </schema>
+</schemalist>

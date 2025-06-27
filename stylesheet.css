@@ -1,0 +1,103 @@
+.config-sync-button {
+    padding: 6px;
+    border-radius: 3px;
+}
+
+.config-sync-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Syncing animation styles */
+.syncing {
+    animation: sync-pulse 1s ease-in-out infinite alternate;
+    color: #4fc3f7 !important;
+}
+
+@keyframes sync-pulse {
+    0% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+}
+
+/* Additional glow effect for sync status */
+.system-status-icon.syncing {
+    text-shadow: 0 0 8px rgba(79, 195, 247, 0.8);
+    transition: all 0.3s ease;
+}
+
+/* Monitoring active indicator */
+.monitoring-active {
+    color: #66bb6a !important;
+    animation: monitoring-glow 2s ease-in-out infinite;
+}
+
+@keyframes monitoring-glow {
+    0%, 100% {
+        text-shadow: 0 0 4px rgba(102, 187, 106, 0.6);
+    }
+    50% {
+        text-shadow: 0 0 8px rgba(102, 187, 106, 0.9);
+    }
+}
+
+/* Change detected state */
+.change-detected {
+    animation: change-flash 0.5s ease-in-out 3;
+    color: #ffb74d !important;
+}
+
+@keyframes change-flash {
+    0%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 4px rgba(255, 183, 77, 0.6);
+    }
+    50% {
+        opacity: 0.7;
+        text-shadow: 0 0 8px rgba(255, 183, 77, 1);
+    }
+}
+
+/* Remote changes detected */
+.remote-changes {
+    animation: remote-pulse 2s ease-in-out infinite;
+    color: #ab47bc !important;
+}
+
+@keyframes remote-pulse {
+    0%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 6px rgba(171, 71, 188, 0.7);
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        text-shadow: 0 0 12px rgba(171, 71, 188, 1);
+        transform: scale(1.05);
+    }
+}
+
+/* Popup menu status indicators */
+.popup-menu-item.status-item {
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.popup-menu-item.monitoring-status {
+    color: #66bb6a;
+}
+
+.popup-menu-item.sync-status {
+    color: #4fc3f7;
+}
+
+/* Preference window enhancements */
+.change-monitoring-group {
+    background: rgba(102, 187, 106, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(102, 187, 106, 0.3);
+}
