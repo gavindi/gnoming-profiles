@@ -261,7 +261,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.4)');
+        log('Gnoming Profiles extension enabled (v2.6)');
     }
     
     disable() {
@@ -1553,7 +1553,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.4');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.6');
                 
                 if (data) {
                     const json = JSON.stringify(data);

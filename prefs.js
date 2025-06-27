@@ -28,14 +28,14 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Create General tab
         this._createGeneralTab(window, settings);
         
-        // Create Monitoring tab
-        this._createMonitoringTab(window, settings);
+        // Create Sync tab
+        this._createSyncTab(window, settings);
         
         // Create Content tab
         this._createContentTab(window, settings);
         
-        // Create Advanced tab
-        this._createAdvancedTab(window, settings);
+        // Create Help tab
+        this._createHelpTab(window, settings);
         
         // Create About tab
         this._createAboutTab(window, settings);
@@ -122,9 +122,9 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         securityGroup.add(securityRow);
     }
     
-    _createMonitoringTab(window, settings) {
+    _createSyncTab(window, settings) {
         const page = new Adw.PreferencesPage({
-            title: _('Monitoring'),
+            title: _('Sync'),
             icon_name: 'preferences-system-network-symbolic',
         });
         window.add(page);
@@ -408,10 +408,10 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         filesGroup.add(exampleFilesRow);
     }
     
-    _createAdvancedTab(window, settings) {
+    _createHelpTab(window, settings) {
         const page = new Adw.PreferencesPage({
-            title: _('Advanced'),
-            icon_name: 'preferences-other-symbolic',
+            title: _('Help'),
+            icon_name: 'help-faq-symbolic',
         });
         window.add(page);
         
@@ -496,7 +496,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.4')
+            subtitle: _('2.6')
         });
         infoGroup.add(versionRow);
         
@@ -517,6 +517,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Automatically syncs your GNOME settings and configuration files to a private GitHub repository with real-time monitoring and multi-device support.')
         });
         infoGroup.add(descriptionRow);
+        
+        const dedicationRow = new Adw.ActionRow({
+            title: _('💜 Dedicated to Jupiter 🐱💜'),
+            subtitle: _('This extension is lovingly dedicated to Jupiter, my amazing cat companion who kept me company during countless hours of coding and debugging.')
+        });
+        infoGroup.add(dedicationRow);
         
         // Features group
         const featuresGroup = new Adw.PreferencesGroup({
@@ -562,8 +568,14 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v26Row = new Adw.ActionRow({
+            title: _('v2.6 (Current)'),
+            subtitle: _('• Renamed "Monitoring" tab to "Sync" for clarity\n• Renamed "Advanced" tab to "Help" for better organization\n• Added heartfelt dedication to Jupiter\n• Improved tab naming for better user experience')
+        });
+        changelogGroup.add(v26Row);
+        
         const v24Row = new Adw.ActionRow({
-            title: _('v2.4 (Current)'),
+            title: _('v2.4'),
             subtitle: _('• NEW: Organized preferences into logical tabs\n• Added comprehensive About section\n• NEW: Default support for GNOME multitasking schemas\n• NEW: Default support for Ubuntu desktop extensions\n• Improved settings organization and user experience')
         });
         changelogGroup.add(v24Row);

@@ -304,7 +304,13 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.4 (Current)
+### v2.6 (Current)
+- **UI Improvements**: Renamed "Monitoring" tab to "Sync" for better clarity
+- **Help Organization**: Renamed "Advanced" tab to "Help" for improved user experience
+- **Personal Touch**: Added heartfelt dedication to Jupiter in About section
+- **Better UX**: Improved tab naming and organization for easier navigation
+
+### v2.4
 - **NEW: Organized preferences interface with logical tabs**
 - Added comprehensive About tab with extension information
 - Reorganized settings into General, Monitoring, Content, Advanced, and About tabs
