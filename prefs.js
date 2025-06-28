@@ -249,7 +249,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const pollingTipsRow = new Adw.ActionRow({
             title: _('💡 GitHub Polling Tips'),
-            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Set 1-2 minutes for testing, 15+ for production\n• Remote changes detected automatically')
+            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Remote changes detected automatically\n• Set 1-2 minutes for testing, 15+ for production')
         });
         tipsGroup.add(pollingTipsRow);
     }
@@ -430,7 +430,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const troubleshootingRow = new Adw.ActionRow({
             title: _('🚨 Troubleshooting Steps'),
-            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for status information\n4. Check logs for error messages\n5. Try disabling/re-enabling extension')
+            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for schema/file counts\n4. Check logs for error messages\n5. Try disabling/re-enabling extension')
         });
         debugGroup.add(troubleshootingRow);
         

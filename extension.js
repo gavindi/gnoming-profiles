@@ -217,7 +217,7 @@ export default class ConfigSyncExtension extends Extension {
         // Connect to session manager for login/logout events
         this._setupSessionHandlers();
         
-        // Setup change monitoring
+        // Setup initial monitoring status (before any sync attempts)
         this._setupChangeMonitoring();
         
         // Setup GitHub polling
@@ -243,17 +243,35 @@ export default class ConfigSyncExtension extends Extension {
             this._setupGitHubPolling();
         });
         
-        // Initial sync on enable
+        // Initial setup and sync on enable
         if (this._settings.get_boolean('auto-sync-on-login')) {
             this._indicator.startSyncAnimation();
             this._indicator.updateStatus(_('Initial sync...'));
             
+            // First try to restore from GitHub, then backup current config
             this._syncFromGitHub().then(() => {
+                // Also create an initial backup after restore
+                return this._syncToGitHub();
+            }).then(() => {
                 this._indicator.stopSyncAnimation();
                 this._indicator.updateStatus(_('Extension loaded: ') + new Date().toLocaleTimeString());
+                // Update monitoring status after sync completes
+                this._setupChangeMonitoring();
+            }).catch(error => {
+                // If restore fails (e.g., no repo yet), try just doing a backup
+                log(`Initial restore failed, attempting backup: ${error.message}`);
+                return this._syncToGitHub();
+            }).then(() => {
+                this._indicator.stopSyncAnimation();
+                this._indicator.updateStatus(_('Initial backup complete: ') + new Date().toLocaleTimeString());
+                // Update monitoring status after backup completes
+                this._setupChangeMonitoring();
             }).catch(error => {
                 this._indicator.stopSyncAnimation();
                 this._indicator.updateStatus(_('Initial sync failed: ') + error.message);
+                log(`Initial sync failed: ${error.message}`);
+                // Still update monitoring status even if sync fails
+                this._setupChangeMonitoring();
             });
         }
         
@@ -308,19 +326,33 @@ export default class ConfigSyncExtension extends Extension {
         
         // Count available schemas (ones that actually exist)
         let availableSchemaCount = 0;
-        for (const schema of allSchemas) {
-            try {
-                const schemaSource = Gio.SettingsSchemaSource.get_default();
-                const schemaObj = schemaSource.lookup(schema, false);
-                if (schemaObj) {
-                    availableSchemaCount++;
-                    log(`Schema available: ${schema}`);
-                } else {
-                    log(`Schema not found: ${schema}`);
-                }
-            } catch (e) {
-                log(`Error checking schema ${schema}: ${e.message}`);
+        log(`Checking ${allSchemas.length} total schemas (including ${syncWallpapers ? 'wallpapers' : 'no wallpapers'})`);
+        
+        try {
+            const schemaSource = Gio.SettingsSchemaSource.get_default();
+            if (!schemaSource) {
+                log('ERROR: Could not get default schema source');
+                this._indicator.updateMonitoringStatus(false, filePaths.length, 0);
+                return;
             }
+            
+            for (const schema of allSchemas) {
+                try {
+                    const schemaObj = schemaSource.lookup(schema, false);
+                    if (schemaObj) {
+                        availableSchemaCount++;
+                        log(`✓ Schema available: ${schema}`);
+                    } else {
+                        log(`✗ Schema not found: ${schema}`);
+                    }
+                } catch (e) {
+                    log(`ERROR checking schema ${schema}: ${e.message}`);
+                }
+            }
+        } catch (e) {
+            log(`ERROR getting schema source: ${e.message}`);
+            this._indicator.updateMonitoringStatus(false, filePaths.length, 0);
+            return;
         }
         
         log(`Total configured schemas: ${allSchemas.length}, available: ${availableSchemaCount}`);
@@ -1028,7 +1060,7 @@ export default class ConfigSyncExtension extends Extension {
         
         // Check if wallpaper syncing is enabled
         const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
-        log(`Wallpaper syncing enabled: ${syncWallpapers}`);
+        log(`Creating backup - wallpaper syncing enabled: ${syncWallpapers}`);
         
         // Get base schemas from settings
         const schemas = this._settings.get_strv('gsettings-schemas');
@@ -1041,39 +1073,67 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         log(`Backing up ${allSchemas.length} gsettings schemas`);
+        log(`Schema list: ${allSchemas.join(', ')}`);
         
-        for (const schema of allSchemas) {
-            try {
-                // Check if schema exists before trying to access it
-                const schemaSource = Gio.SettingsSchemaSource.get_default();
-                const schemaObj = schemaSource.lookup(schema, false);
-                
-                if (!schemaObj) {
-                    log(`Schema ${schema} not found during backup, skipping (extension may not be installed)`);
-                    continue;
-                }
-                
-                const settings = new Gio.Settings({schema: schema});
-                const keys = settings.list_keys();
-                backup.gsettings[schema] = {};
-                
-                for (const key of keys) {
-                    try {
-                        const variant = settings.get_value(key);
-                        backup.gsettings[schema][key] = variant.print(true);
-                        
-                        // Store wallpaper info separately for uploading (only if wallpaper syncing is enabled)
-                        if (syncWallpapers && this._isWallpaperKey(schema, key)) {
-                            await this._trackWallpaperForUpload(schema, key, settings);
-                        }
-                    } catch (e) {
-                        log(`Failed to backup ${schema}.${key}: ${e.message}`);
-                    }
-                }
-                log(`Backed up schema ${schema} with ${Object.keys(backup.gsettings[schema]).length} keys`);
-            } catch (e) {
-                log(`Failed to access schema ${schema}: ${e.message}`);
+        let successfulBackups = 0;
+        
+        try {
+            const schemaSource = Gio.SettingsSchemaSource.get_default();
+            if (!schemaSource) {
+                throw new Error('Could not get default GSettings schema source');
             }
+            
+            for (const schema of allSchemas) {
+                try {
+                    // Check if schema exists before trying to access it
+                    const schemaObj = schemaSource.lookup(schema, false);
+                    
+                    if (!schemaObj) {
+                        log(`Schema ${schema} not found during backup, skipping (extension may not be installed)`);
+                        continue;
+                    }
+                    
+                    const settings = new Gio.Settings({schema: schema});
+                    const keys = settings.list_keys();
+                    backup.gsettings[schema] = {};
+                    
+                    let keyCount = 0;
+                    for (const key of keys) {
+                        try {
+                            const variant = settings.get_value(key);
+                            backup.gsettings[schema][key] = variant.print(true);
+                            keyCount++;
+                            
+                            // Store wallpaper info separately for uploading (only if wallpaper syncing is enabled)
+                            if (syncWallpapers && this._isWallpaperKey(schema, key)) {
+                                await this._trackWallpaperForUpload(schema, key, settings);
+                            }
+                        } catch (e) {
+                            log(`Failed to backup ${schema}.${key}: ${e.message}`);
+                        }
+                    }
+                    
+                    if (keyCount > 0) {
+                        successfulBackups++;
+                        log(`✓ Backed up schema ${schema} with ${keyCount} keys`);
+                    } else {
+                        log(`✗ No keys found for schema ${schema}`);
+                        delete backup.gsettings[schema]; // Remove empty schema
+                    }
+                } catch (e) {
+                    log(`Failed to access schema ${schema}: ${e.message}`);
+                }
+            }
+        } catch (e) {
+            log(`Critical error during backup: ${e.message}`);
+            throw e;
+        }
+        
+        log(`Backup complete: ${successfulBackups} schemas successfully backed up`);
+        log(`Total backup size: ${Object.keys(backup.gsettings).length} schemas with data`);
+        
+        if (successfulBackups === 0) {
+            log('WARNING: No schemas were successfully backed up!');
         }
         
         return backup;
@@ -1622,5 +1682,53 @@ export default class ConfigSyncExtension extends Extension {
         } catch (error) {
             log(`Failed to open preferences: ${error.message}`);
         }
+    }
+    
+    // Debug method to manually test schema detection
+    debugSchemas() {
+        log('=== DEBUG: Testing schema detection ===');
+        const baseSchemas = this._settings.get_strv('gsettings-schemas');
+        const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
+        const allSchemas = [...baseSchemas];
+        
+        if (syncWallpapers) {
+            allSchemas.push('org.gnome.desktop.background');
+            allSchemas.push('org.gnome.desktop.screensaver');
+        }
+        
+        log(`Total schemas to check: ${allSchemas.length}`);
+        log(`Base schemas: ${baseSchemas.join(', ')}`);
+        log(`Wallpaper syncing: ${syncWallpapers}`);
+        
+        let availableCount = 0;
+        try {
+            const schemaSource = Gio.SettingsSchemaSource.get_default();
+            if (!schemaSource) {
+                log('ERROR: Could not get schema source');
+                return;
+            }
+            
+            for (const schema of allSchemas) {
+                try {
+                    const schemaObj = schemaSource.lookup(schema, false);
+                    if (schemaObj) {
+                        availableCount++;
+                        // Try to actually create settings to verify it works
+                        const settings = new Gio.Settings({schema: schema});
+                        const keys = settings.list_keys();
+                        log(`✓ ${schema} - ${keys.length} keys`);
+                    } else {
+                        log(`✗ ${schema} - not found`);
+                    }
+                } catch (e) {
+                    log(`✗ ${schema} - error: ${e.message}`);
+                }
+            }
+        } catch (e) {
+            log(`ERROR: ${e.message}`);
+        }
+        
+        log(`=== Result: ${availableCount}/${allSchemas.length} schemas available ===`);
+        return availableCount;
     }
 }
