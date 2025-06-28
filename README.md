@@ -262,6 +262,13 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 5. Review polling interval (too frequent may hit rate limits)
 6. Look for "GitHub polling" status in panel menu
 
+### Empty config-backup.json or 0 Schemas Detected
+1. Use the **"Initialize Sync"** button in Preferences → Sync tab
+2. This will force creation of an initial backup with all available schemas
+3. Check the logs to see which schemas are being detected
+4. Verify GitHub credentials are configured before initializing
+5. Check panel menu to see schema count after initialization
+
 ### Remote Changes Not Detected
 1. Verify changes were actually committed to the repository
 2. Check that config files (config-backup.json or files/*) were modified
@@ -306,6 +313,10 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ### v2.7 (Current)
 - **UI Cleanup**: Removed "Test GitHub Polling" from panel menu
+- **NEW: Initialize Sync Button**: Added "Initialize Sync" button in Preferences → Sync tab
+- **Fixed Schema Detection**: Improved schema counting and availability detection
+- **Enhanced Initial Sync**: Better handling of first-time setup and backup creation
+- **Improved Logging**: More detailed logging for troubleshooting schema and sync issues
 - Simplified menu interface for better user experience
 - Cleaned up debugging options to focus on production features
 - GitHub polling functionality remains available through automatic polling

@@ -19,6 +19,7 @@
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class ConfigSyncPreferences extends ExtensionPreferences {
@@ -252,6 +253,51 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Remote changes detected automatically\n• Set 1-2 minutes for testing, 15+ for production')
         });
         tipsGroup.add(pollingTipsRow);
+        
+        // Initialize sync group
+        const initGroup = new Adw.PreferencesGroup({
+            title: _('Manual Initialization'),
+            description: _('Force an initial backup to GitHub repository')
+        });
+        page.add(initGroup);
+        
+        // Initialize sync button
+        const initSyncRow = new Adw.ActionRow({
+            title: _('Initialize Sync'),
+            subtitle: _('Create an initial backup of all configured schemas and files to GitHub'),
+            activatable: true
+        });
+        
+        const initButton = new Gtk.Button({
+            label: _('Initialize Sync'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['suggested-action']
+        });
+        
+        initButton.connect('clicked', () => {
+            // Disable button temporarily
+            initButton.sensitive = false;
+            initButton.label = _('Initializing...');
+            
+            // Trigger the extension to perform initial sync by setting a flag
+            settings.set_boolean('trigger-initial-sync', true);
+            
+            // Re-enable button after a delay
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+                initButton.sensitive = true;
+                initButton.label = _('Initialize Sync');
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+        
+        initSyncRow.add_suffix(initButton);
+        initGroup.add(initSyncRow);
+        
+        const initWarningRow = new Adw.ActionRow({
+            title: _('⚠️ Important'),
+            subtitle: _('Make sure GitHub credentials are configured before initializing. Check the panel menu and logs for status updates.')
+        });
+        initGroup.add(initWarningRow);
     }
     
     _createContentTab(window, settings) {
@@ -570,7 +616,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const v27Row = new Adw.ActionRow({
             title: _('v2.7 (Current)'),
-            subtitle: _('• Removed "Test GitHub Polling" from panel menu\n• Cleaned up UI by removing debugging options\n• Simplified menu interface for better user experience\n• Focus on production-ready features only')
+            subtitle: _('• Removed "Test GitHub Polling" from panel menu\n• NEW: Added "Initialize Sync" button for manual setup\n• Fixed schema detection and counting issues\n• Enhanced initial backup process\n• Improved logging for troubleshooting')
         });
         changelogGroup.add(v27Row);
         

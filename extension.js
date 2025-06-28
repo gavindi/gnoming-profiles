@@ -242,6 +242,9 @@ export default class ConfigSyncExtension extends Extension {
         this._settings.connect('changed::github-polling-interval', () => {
             this._setupGitHubPolling();
         });
+        this._settings.connect('changed::trigger-initial-sync', () => {
+            this._onTriggerInitialSync();
+        });
         
         // Initial setup and sync on enable
         if (this._settings.get_boolean('auto-sync-on-login')) {
@@ -940,6 +943,50 @@ export default class ConfigSyncExtension extends Extension {
                 log(`Logout sync failed: ${error.message}`);
             });
         }
+    }
+    
+    _onTriggerInitialSync() {
+        // Check if the flag was set to true
+        if (!this._settings.get_boolean('trigger-initial-sync')) {
+            return;
+        }
+        
+        // Reset the flag immediately
+        this._settings.set_boolean('trigger-initial-sync', false);
+        
+        log('Manual initial sync triggered from preferences');
+        
+        if (!this._indicator) {
+            log('Cannot perform initial sync: indicator not available');
+            return;
+        }
+        
+        // Check if credentials are configured
+        const token = this._settings.get_string('github-token');
+        const repo = this._settings.get_string('github-repo');
+        const username = this._settings.get_string('github-username');
+        
+        if (!token || !repo || !username) {
+            this._indicator.updateStatus(_('Initial sync failed: GitHub credentials not configured'));
+            log('Initial sync failed: GitHub credentials not configured');
+            return;
+        }
+        
+        this._indicator.startSyncAnimation();
+        this._indicator.updateStatus(_('Manual initial sync...'));
+        
+        // Perform initial backup (create backup of current settings)
+        this._syncToGitHub().then(() => {
+            this._indicator.stopSyncAnimation();
+            this._indicator.updateStatus(_('Initial sync complete: ') + new Date().toLocaleTimeString());
+            log('Manual initial sync completed successfully');
+            // Update monitoring status to reflect any changes
+            this._setupChangeMonitoring();
+        }).catch(error => {
+            this._indicator.stopSyncAnimation();
+            this._indicator.updateStatus(_('Initial sync failed: ') + error.message);
+            log(`Manual initial sync failed: ${error.message}`);
+        });
     }
     
     syncNow() {
