@@ -341,7 +341,7 @@ export default class ConfigSyncExtension extends Extension {
             
             for (const schema of allSchemas) {
                 try {
-                    const schemaObj = schemaSource.lookup(schema, false);
+                    const schemaObj = schemaSource.lookup(schema, true);
                     if (schemaObj) {
                         availableSchemaCount++;
                         log(`✓ Schema available: ${schema}`);
@@ -431,7 +431,7 @@ export default class ConfigSyncExtension extends Extension {
         try {
             // Check if schema exists before trying to access it
             const schemaSource = Gio.SettingsSchemaSource.get_default();
-            const schemaObj = schemaSource.lookup(schema, false);
+            const schemaObj = schemaSource.lookup(schema, true);
             
             if (!schemaObj) {
                 log(`Schema ${schema} not found, skipping (extension may not be installed)`);
@@ -541,7 +541,7 @@ export default class ConfigSyncExtension extends Extension {
             for (const schema of allSchemas) {
                 try {
                     const schemaSource = Gio.SettingsSchemaSource.get_default();
-                    const schemaObj = schemaSource.lookup(schema, false);
+                    const schemaObj = schemaSource.lookup(schema, true);
                     if (schemaObj) {
                         availableSchemaCount++;
                     }
@@ -1133,7 +1133,7 @@ export default class ConfigSyncExtension extends Extension {
             for (const schema of allSchemas) {
                 try {
                     // Check if schema exists before trying to access it
-                    const schemaObj = schemaSource.lookup(schema, false);
+                    const schemaObj = schemaSource.lookup(schema, true);
                     
                     if (!schemaObj) {
                         log(`Schema ${schema} not found during backup, skipping (extension may not be installed)`);
@@ -1260,7 +1260,7 @@ export default class ConfigSyncExtension extends Extension {
                 try {
                     // Check if schema exists before trying to access it
                     const schemaSource = Gio.SettingsSchemaSource.get_default();
-                    const schemaObj = schemaSource.lookup(schema, false);
+                    const schemaObj = schemaSource.lookup(schema, true);
                     
                     if (!schemaObj) {
                         log(`Schema ${schema} not found during restore, skipping (extension may not be installed)`);
@@ -1757,7 +1757,7 @@ export default class ConfigSyncExtension extends Extension {
             
             for (const schema of allSchemas) {
                 try {
-                    const schemaObj = schemaSource.lookup(schema, false);
+                    const schemaObj = schemaSource.lookup(schema, true);
                     if (schemaObj) {
                         availableCount++;
                         // Try to actually create settings to verify it works
