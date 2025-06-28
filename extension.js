@@ -314,11 +314,16 @@ export default class ConfigSyncExtension extends Extension {
                 const schemaObj = schemaSource.lookup(schema, false);
                 if (schemaObj) {
                     availableSchemaCount++;
+                    log(`Schema available: ${schema}`);
+                } else {
+                    log(`Schema not found: ${schema}`);
                 }
             } catch (e) {
-                // Schema doesn't exist, skip counting
+                log(`Error checking schema ${schema}: ${e.message}`);
             }
         }
+        
+        log(`Total configured schemas: ${allSchemas.length}, available: ${availableSchemaCount}`);
         
         if (!changeMonitoringEnabled) {
             this._indicator.updateMonitoringStatus(false, filePaths.length, availableSchemaCount);
@@ -341,9 +346,10 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         this._isMonitoring = true;
-        this._indicator.updateMonitoringStatus(true, this._fileMonitors.size, this._settingsMonitors.size);
+        // Use available schema count instead of _settingsMonitors.size for consistency
+        this._indicator.updateMonitoringStatus(true, this._fileMonitors.size, availableSchemaCount);
         
-        log(`Change monitoring enabled: ${this._fileMonitors.size} files, ${this._settingsMonitors.size} schemas (wallpapers: ${syncWallpapers})`);
+        log(`Change monitoring enabled: ${this._fileMonitors.size} files, ${this._settingsMonitors.size} active monitors, ${availableSchemaCount} available schemas (wallpapers: ${syncWallpapers})`);
     }
     
     _setupFileMonitor(filePath) {
