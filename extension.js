@@ -134,8 +134,10 @@ class ConfigSyncIndicator extends PanelMenu.Button {
     updateMonitoringStatus(isMonitoring, fileCount, schemaCount) {
         if (isMonitoring) {
             this._monitoringItem.label.text = _(`Monitoring: ${fileCount} files, ${schemaCount} schemas`);
+            this._icon.add_style_class_name('monitoring-active');
         } else {
-            this._monitoringItem.label.text = _('Change monitoring: Off');
+            this._monitoringItem.label.text = _(`Configured: ${fileCount} files, ${schemaCount} schemas (monitoring off)`);
+            this._icon.remove_style_class_name('monitoring-active');
         }
     }
     
@@ -291,18 +293,10 @@ export default class ConfigSyncExtension extends Extension {
         // Stop existing monitoring
         this._stopChangeMonitoring();
         
-        if (!this._settings.get_boolean('auto-sync-on-change')) {
-            this._indicator.updateMonitoringStatus(false, 0, 0);
-            return;
-        }
+        const changeMonitoringEnabled = this._settings.get_boolean('auto-sync-on-change');
         
-        // Setup file monitoring
+        // Get configured items for status display
         const filePaths = this._settings.get_strv('sync-files');
-        for (const filePath of filePaths) {
-            this._setupFileMonitor(filePath);
-        }
-        
-        // Get base schemas and add wallpaper schemas if enabled
         const baseSchemas = this._settings.get_strv('gsettings-schemas');
         const allSchemas = [...baseSchemas];
         
@@ -310,6 +304,34 @@ export default class ConfigSyncExtension extends Extension {
         if (syncWallpapers) {
             allSchemas.push('org.gnome.desktop.background');
             allSchemas.push('org.gnome.desktop.screensaver');
+        }
+        
+        // Count available schemas (ones that actually exist)
+        let availableSchemaCount = 0;
+        for (const schema of allSchemas) {
+            try {
+                const schemaSource = Gio.SettingsSchemaSource.get_default();
+                const schemaObj = schemaSource.lookup(schema, false);
+                if (schemaObj) {
+                    availableSchemaCount++;
+                }
+            } catch (e) {
+                // Schema doesn't exist, skip counting
+            }
+        }
+        
+        if (!changeMonitoringEnabled) {
+            this._indicator.updateMonitoringStatus(false, filePaths.length, availableSchemaCount);
+            log(`Change monitoring disabled. Configured: ${filePaths.length} files, ${availableSchemaCount}/${allSchemas.length} schemas available (wallpapers: ${syncWallpapers})`);
+            return;
+        }
+        
+        // Setup file monitoring
+        for (const filePath of filePaths) {
+            this._setupFileMonitor(filePath);
+        }
+        
+        if (syncWallpapers) {
             log('Wallpaper syncing enabled, monitoring wallpaper schemas');
         }
         
@@ -461,8 +483,33 @@ export default class ConfigSyncExtension extends Extension {
         this._isMonitoring = false;
         this._pendingChanges = false;
         
+        // Update status to show configured items even when monitoring is off
         if (this._indicator) {
-            this._indicator.updateMonitoringStatus(false, 0, 0);
+            const filePaths = this._settings.get_strv('sync-files');
+            const baseSchemas = this._settings.get_strv('gsettings-schemas');
+            const allSchemas = [...baseSchemas];
+            
+            const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
+            if (syncWallpapers) {
+                allSchemas.push('org.gnome.desktop.background');
+                allSchemas.push('org.gnome.desktop.screensaver');
+            }
+            
+            // Count available schemas
+            let availableSchemaCount = 0;
+            for (const schema of allSchemas) {
+                try {
+                    const schemaSource = Gio.SettingsSchemaSource.get_default();
+                    const schemaObj = schemaSource.lookup(schema, false);
+                    if (schemaObj) {
+                        availableSchemaCount++;
+                    }
+                } catch (e) {
+                    // Schema doesn't exist, skip counting
+                }
+            }
+            
+            this._indicator.updateMonitoringStatus(false, filePaths.length, availableSchemaCount);
         }
         
         log('Change monitoring stopped');
