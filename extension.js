@@ -48,21 +48,22 @@ class ConfigSyncIndicator extends PanelMenu.Button {
             'network-transmit-receive-symbolic'
         ];
         
-        // Create menu items
+        // Create menu items in new order
+        
+        // 1. Extension name at top
+        let titleItem = new PopupMenu.PopupMenuItem(_('Gnoming Profiles'));
+        titleItem.reactive = false;
+        titleItem.add_style_class_name('popup-menu-item');
+        this.menu.addMenuItem(titleItem);
+        
+        // 2. Separator after title
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         
-        let syncItem = new PopupMenu.PopupMenuItem(_('Sync Now'));
-        syncItem.connect('activate', () => {
-            this._extension.syncNow();
-        });
-        this.menu.addMenuItem(syncItem);
-        
+        // 3. Status items (stats)
         let statusItem = new PopupMenu.PopupMenuItem(_('Last sync: Never'));
         statusItem.reactive = false;
         this.menu.addMenuItem(statusItem);
         this._statusItem = statusItem;
-        
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         
         let monitoringItem = new PopupMenu.PopupMenuItem(_('Change monitoring: Off'));
         monitoringItem.reactive = false;
@@ -79,7 +80,15 @@ class ConfigSyncIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(remoteChangesItem);
         this._remoteChangesItem = remoteChangesItem;
         
+        // 4. Separator before action items
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        
+        // 5. Action items (Sync and Settings) at bottom
+        let syncItem = new PopupMenu.PopupMenuItem(_('Sync Now'));
+        syncItem.connect('activate', () => {
+            this._extension.syncNow();
+        });
+        this.menu.addMenuItem(syncItem);
         
         let settingsItem = new PopupMenu.PopupMenuItem(_('Settings'));
         settingsItem.connect('activate', () => {
