@@ -542,7 +542,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.7')
+            subtitle: _('2.8')
         });
         infoGroup.add(versionRow);
         
@@ -614,8 +614,14 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v28Row = new Adw.ActionRow({
+            title: _('v2.8 (Current)'),
+            subtitle: _('• NEW: Reorganized panel menu structure\n• Extension name now appears at top of menu\n• Status information grouped in middle section\n• Action items (Sync Now, Settings) moved to bottom\n• Enhanced visual hierarchy with logical sections\n• Improved user experience with cleaner menu layout')
+        });
+        changelogGroup.add(v28Row);
+        
         const v27Row = new Adw.ActionRow({
-            title: _('v2.7 (Current)'),
+            title: _('v2.7'),
             subtitle: _('• Removed "Test GitHub Polling" from panel menu\n• NEW: Added "Initialize Sync" button for manual setup\n• Fixed schema detection and counting issues\n• Enhanced initial backup process\n• Improved logging for troubleshooting')
         });
         changelogGroup.add(v27Row);

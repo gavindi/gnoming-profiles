@@ -16,6 +16,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Private Repository**: Uses GitHub private repositories for security
 - **Manual Sync**: Trigger sync manually from the panel indicator
 - **Visual Feedback**: Panel indicator shows sync status and monitoring state
+- **Organized Menu**: Clean, intuitive panel menu with logical sections
 
 ## Installation
 
@@ -60,6 +61,20 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 ### Manual Sync
 - Click the panel indicator and select "Sync Now"
 - Performs both backup and restore operations
+
+## Panel Menu Interface
+
+The extension features a clean, organized panel menu with three logical sections:
+
+1. **Extension Header**: "Gnoming Profiles" title for clear identification
+2. **Status Section**: 
+   - Last sync timestamp
+   - Change monitoring status (files/schemas count)
+   - GitHub polling status (interval)
+   - Pull Remote Changes (when available)
+3. **Action Section**:
+   - Sync Now
+   - Settings
 
 ## Default Monitored Items
 
@@ -182,16 +197,6 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 - **Change Detected**: Brief orange flash when local changes are detected
 - **Remote Changes**: Purple pulsing when remote changes are available (shows "Pull Changes" menu item)
 
-## Menu Options
-
-- **Sync Now**: Full bidirectional sync (backup then restore)
-- **Pull Remote Changes**: Appears when remote changes detected via polling
-- **Status Lines**: 
-  - Last sync timestamp
-  - Change monitoring status (files/schemas count)
-  - GitHub polling status (interval)
-- **Settings**: Open extension preferences
-
 ## Repository Structure
 
 In your GitHub repository, you'll find:
@@ -311,7 +316,15 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.7 (Current)
+### v2.8 (Current)
+- **NEW: Reorganized Panel Menu**: Improved app indicator menu structure
+- Extension name now appears at the top of the menu for better branding
+- Status information (sync status, monitoring, polling) grouped together in middle section
+- Action items (Sync Now, Settings) moved to bottom for better organization
+- Enhanced visual hierarchy with logical sections separated by dividers
+- Improved user experience with cleaner, more intuitive menu layout
+
+### v2.7
 - **UI Cleanup**: Removed "Test GitHub Polling" from panel menu
 - **NEW: Initialize Sync Button**: Added "Initialize Sync" button in Preferences → Sync tab
 - **Fixed Schema Detection**: Improved schema counting and availability detection
