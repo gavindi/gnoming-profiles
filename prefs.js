@@ -274,6 +274,18 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             css_classes: ['suggested-action']
         });
         
+        // Create a safe timeout handler that doesn't capture button reference
+        const createSafeTimeoutHandler = (buttonRef) => {
+            return () => {
+                // Use weak reference pattern - check if button still exists
+                if (buttonRef?.sensitive !== undefined) {
+                    buttonRef.sensitive = true;
+                    buttonRef.label = _('Initialize Sync');
+                }
+                return GLib.SOURCE_REMOVE;
+            };
+        };
+        
         initButton.connect('clicked', () => {
             // Disable button temporarily
             initButton.sensitive = false;
@@ -282,12 +294,8 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             // Trigger the extension to perform initial sync by setting a flag
             settings.set_boolean('trigger-initial-sync', true);
             
-            // Re-enable button after a delay
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
-                initButton.sensitive = true;
-                initButton.label = _('Initialize Sync');
-                return GLib.SOURCE_REMOVE;
-            });
+            // Re-enable button after a delay using safe timeout handler
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, createSafeTimeoutHandler(initButton));
         });
         
         initSyncRow.add_suffix(initButton);
@@ -374,6 +382,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         schemasGroup.add(schemasRow);
         
+        // Use a simple closure that only captures the settings object, not the buffer
         schemasBuffer.connect('changed', () => {
             const text = schemasBuffer.text;
             const schemas = text.split('\n').filter(s => s.trim().length > 0);
@@ -440,6 +449,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         filesGroup.add(filesRow);
         
+        // Use a simple closure that only captures the settings object, not the buffer
         filesBuffer.connect('changed', () => {
             const text = filesBuffer.text;
             const files = text.split('\n').filter(f => f.trim().length > 0);
