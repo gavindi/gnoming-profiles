@@ -287,7 +287,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.7)');
+        log('Gnoming Profiles extension enabled (v2.8)');
     }
     
     disable() {
@@ -1698,7 +1698,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.7');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.8');
                 
                 if (data) {
                     const json = JSON.stringify(data);
@@ -1730,11 +1730,8 @@ export default class ConfigSyncExtension extends Extension {
     
     openPreferences() {
         try {
-            const uuid = this.metadata.uuid;
-            Gio.Subprocess.new(
-                ['gnome-extensions', 'prefs', uuid],
-                Gio.SubprocessFlags.NONE
-            );
+            // Use the built-in Extension class method to open preferences
+            super.openPreferences();
         } catch (error) {
             log(`Failed to open preferences: ${error.message}`);
         }
