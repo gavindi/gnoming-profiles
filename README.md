@@ -328,6 +328,10 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 - Enhanced user feedback with sync status indicators and disabled menu items during operations
 - Robust error handling ensures sync lock is always properly released
 - Eliminates GitHub API conflicts when multiple sync triggers occur simultaneously
+- **FIXED: Session Handler Memory Leaks**: Proper cleanup of DBusProxy connections
+- Session manager signals now properly disconnected when extension is disabled
+- Improved extension lifecycle management prevents memory leaks during enable/disable cycles
+- Enhanced error handling during session handler cleanup with detailed logging
 
 ### v2.7
 - **UI Cleanup**: Removed "Test GitHub Polling" from panel menu

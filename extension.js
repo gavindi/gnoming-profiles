@@ -204,8 +204,7 @@ export default class ConfigSyncExtension extends Extension {
         this._indicator = null;
         this._settings = null;
         this._sessionManager = null;
-        this._loginId = null;
-        this._logoutId = null;
+        this._sessionSignalId = null;
         
         // Sync lock to prevent concurrent operations
         this._isSyncing = false;
@@ -278,7 +277,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.8.1)');
+        log('Gnoming Profiles extension enabled (v2.8.2)');
     }
     
     disable() {
@@ -288,14 +287,29 @@ export default class ConfigSyncExtension extends Extension {
         // Stop GitHub polling (before destroying indicator)
         this._stopGitHubPolling();
         
-        if (this._logoutId) {
-            this._sessionManager.disconnect(this._logoutId);
-            this._logoutId = null;
+        // Clean up session manager connections
+        if (this._sessionSignalId && this._sessionManager) {
+            try {
+                this._sessionManager.disconnect(this._sessionSignalId);
+                this._sessionSignalId = null;
+                log('Session manager signal disconnected');
+            } catch (e) {
+                log(`Error disconnecting session manager signal: ${e.message}`);
+            }
         }
         
-        if (this._loginId) {
-            this._sessionManager.disconnect(this._loginId);
-            this._loginId = null;
+        // Dispose of the session manager proxy
+        if (this._sessionManager) {
+            try {
+                // Note: DBusProxy doesn't have a specific dispose method in GJS,
+                // but disconnecting all signals and nulling the reference is sufficient
+                this._sessionManager = null;
+                log('Session manager proxy cleaned up');
+            } catch (e) {
+                log(`Error cleaning up session manager proxy: ${e.message}`);
+                // Still null it out even if cleanup fails
+                this._sessionManager = null;
+            }
         }
         
         if (this._indicator) {
@@ -304,7 +318,6 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         this._settings = null;
-        this._sessionManager = null;
         this._wallpaperData.clear();
         
         // Clear sync lock and queue
@@ -965,14 +978,16 @@ export default class ConfigSyncExtension extends Extension {
                 g_interface_name: 'org.gnome.SessionManager'
             });
             
-            // Listen for session state changes
-            this._sessionManager.connect('g-signal', (proxy, sender, signal, params) => {
+            // Listen for session state changes and store the signal ID
+            this._sessionSignalId = this._sessionManager.connect('g-signal', (proxy, sender, signal, params) => {
                 if (signal === 'SessionRunning') {
                     this._onLogin();
                 } else if (signal === 'SessionEnding') {
                     this._onLogout();
                 }
             });
+            
+            log('Session handlers setup complete');
             
         } catch (e) {
             log(`Failed to setup session handlers: ${e.message}`);
@@ -1711,7 +1726,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.8.1');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.8.2');
                 
                 if (data) {
                     const json = JSON.stringify(data);
