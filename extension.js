@@ -26,6 +26,62 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+// Request queue implementation for managing GitHub API calls
+class RequestQueue {
+    constructor(maxConcurrency = 3) {
+        this.maxConcurrency = maxConcurrency;
+        this.running = 0;
+        this.queue = [];
+    }
+    
+    async add(requestFunction) {
+        return new Promise((resolve, reject) => {
+            this.queue.push({
+                fn: requestFunction,
+                resolve: resolve,
+                reject: reject
+            });
+            this._processQueue();
+        });
+    }
+    
+    async _processQueue() {
+        if (this.running >= this.maxConcurrency || this.queue.length === 0) {
+            return;
+        }
+        
+        this.running++;
+        const item = this.queue.shift();
+        
+        try {
+            const result = await item.fn();
+            item.resolve(result);
+        } catch (error) {
+            item.reject(error);
+        } finally {
+            this.running--;
+            // Process next item
+            this._processQueue();
+        }
+    }
+    
+    clear() {
+        // Reject all pending requests
+        for (const item of this.queue) {
+            item.reject(new Error('Queue cleared'));
+        }
+        this.queue = [];
+    }
+    
+    get pendingCount() {
+        return this.queue.length;
+    }
+    
+    get activeCount() {
+        return this.running;
+    }
+}
+
 const ConfigSyncIndicator = GObject.registerClass(
 class ConfigSyncIndicator extends PanelMenu.Button {
     _init() {
@@ -48,7 +104,7 @@ class ConfigSyncIndicator extends PanelMenu.Button {
             'network-transmit-receive-symbolic'
         ];
         
-        // Create menu items in new order
+        // Create menu items in organized structure
         
         // 1. Extension name at top
         let titleItem = new PopupMenu.PopupMenuItem(_('Gnoming Profiles'));
@@ -74,6 +130,11 @@ class ConfigSyncIndicator extends PanelMenu.Button {
         pollingItem.reactive = false;
         this.menu.addMenuItem(pollingItem);
         this._pollingItem = pollingItem;
+        
+        let queueItem = new PopupMenu.PopupMenuItem(_('Request queue: 0 pending'));
+        queueItem.reactive = false;
+        this.menu.addMenuItem(queueItem);
+        this._queueItem = queueItem;
         
         let remoteChangesItem = new PopupMenu.PopupMenuItem(_('Pull Remote Changes'));
         remoteChangesItem.visible = false;
@@ -168,6 +229,10 @@ class ConfigSyncIndicator extends PanelMenu.Button {
         }
     }
     
+    updateQueueStatus(pending, active) {
+        this._queueItem.label.text = _(`Request queue: ${pending} pending, ${active} active`);
+    }
+    
     showRemoteChanges(commit) {
         this._remoteChangesItem.visible = true;
         const shortSha = commit.sha.substring(0, 7);
@@ -210,6 +275,12 @@ export default class ConfigSyncExtension extends Extension {
         this._isSyncing = false;
         this._syncQueue = [];
         
+        // Performance improvements for v2.9
+        this._requestQueue = new RequestQueue(3); // Max 3 concurrent requests
+        this._shaCache = new Map(); // Cache file SHAs to avoid unnecessary uploads
+        this._contentHashCache = new Map(); // Cache content hashes
+        this._httpSession = null; // Reuse HTTP session
+        
         // Change monitoring
         this._fileMonitors = new Map();
         this._settingsMonitors = new Map();
@@ -231,6 +302,12 @@ export default class ConfigSyncExtension extends Extension {
         this._settings = this.getSettings();
         this._indicator = new ConfigSyncIndicator();
         this._indicator.setExtension(this);
+        
+        // Initialize HTTP session for reuse
+        this._httpSession = new Soup.Session();
+        this._httpSession.timeout = 30;
+        this._httpSession.max_conns = 10;
+        this._httpSession.user_agent = 'GNOME-Config-Sync/2.9.0';
         
         Main.panel.addToStatusArea(this.uuid, this._indicator);
         
@@ -266,6 +343,9 @@ export default class ConfigSyncExtension extends Extension {
             this._onTriggerInitialSync();
         });
         
+        // Setup queue status update timer
+        this._setupQueueStatusUpdater();
+        
         // Initial setup and sync on enable
         if (this._settings.get_boolean('auto-sync-on-login')) {
             this._performSyncOperation('initial', async () => {
@@ -277,10 +357,15 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.8.2)');
+        log('Gnoming Profiles extension enabled (v2.9.0) with GitHub Tree API batching');
     }
     
     disable() {
+        // Clear request queue
+        if (this._requestQueue) {
+            this._requestQueue.clear();
+        }
+        
         // Stop change monitoring
         this._stopChangeMonitoring();
         
@@ -301,15 +386,17 @@ export default class ConfigSyncExtension extends Extension {
         // Dispose of the session manager proxy
         if (this._sessionManager) {
             try {
-                // Note: DBusProxy doesn't have a specific dispose method in GJS,
-                // but disconnecting all signals and nulling the reference is sufficient
                 this._sessionManager = null;
                 log('Session manager proxy cleaned up');
             } catch (e) {
                 log(`Error cleaning up session manager proxy: ${e.message}`);
-                // Still null it out even if cleanup fails
                 this._sessionManager = null;
             }
+        }
+        
+        // Clean up HTTP session
+        if (this._httpSession) {
+            this._httpSession = null;
         }
         
         if (this._indicator) {
@@ -320,11 +407,28 @@ export default class ConfigSyncExtension extends Extension {
         this._settings = null;
         this._wallpaperData.clear();
         
+        // Clear caches
+        this._shaCache.clear();
+        this._contentHashCache.clear();
+        
         // Clear sync lock and queue
         this._isSyncing = false;
         this._syncQueue = [];
         
         log('Gnoming Profiles extension disabled');
+    }
+    
+    _setupQueueStatusUpdater() {
+        // Update queue status every 2 seconds when queue is active
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+            if (this._indicator && this._requestQueue) {
+                this._indicator.updateQueueStatus(
+                    this._requestQueue.pendingCount,
+                    this._requestQueue.activeCount
+                );
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
     }
     
     /**
@@ -763,11 +867,13 @@ export default class ConfigSyncExtension extends Extension {
         try {
             log(`GitHub polling: Checking ${username}/${repo} for changes...`);
             
-            // Get latest commit info
-            const response = await this._makeGitHubRequest(
-                `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`,
-                'GET',
-                token
+            // Get latest commit info using request queue
+            const response = await this._requestQueue.add(() => 
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`,
+                    'GET',
+                    token
+                )
             );
             
             if (!response.ok) {
@@ -824,52 +930,6 @@ export default class ConfigSyncExtension extends Extension {
         }
     }
     
-    async _checkCommitAffectsConfig(commit, token, username, repo) {
-        try {
-            // Check if commit has a URL field, otherwise construct it
-            let commitUrl = commit.url;
-            if (!commitUrl) {
-                commitUrl = `https://api.github.com/repos/${username}/${repo}/commits/${commit.sha}`;
-            }
-            
-            // Get commit details to see what files were changed
-            const response = await this._makeGitHubRequest(
-                commitUrl,
-                'GET',
-                token
-            );
-            
-            if (!response.ok) {
-                // If we can't get details, assume it affects config to be safe
-                log(`Failed to get commit details (${response.status}), assuming config change`);
-                return true;
-            }
-            
-            const commitData = JSON.parse(response.data);
-            const changedFiles = commitData.files || [];
-            
-            // Check if any of our config files were changed
-            for (const file of changedFiles) {
-                if (!file.filename) continue;
-                
-                if (file.filename === 'config-backup.json' || 
-                    file.filename.startsWith('files/') ||
-                    file.filename.startsWith('wallpapers/')) {
-                    log(`Config file changed: ${file.filename}`);
-                    return true;
-                }
-            }
-            
-            log(`No config files changed in commit ${commit.sha.substring(0, 7)}`);
-            return false;
-            
-        } catch (error) {
-            log(`Failed to check commit details: ${error.message}`);
-            // If we can't check, assume it affects config to be safe
-            return true;
-        }
-    }
-    
     _onRemoteChangesDetected(commit) {
         this._remoteChangesDetected = true;
         
@@ -923,10 +983,12 @@ export default class ConfigSyncExtension extends Extension {
         
         try {
             log(`GitHub polling: Getting initial commit hash for ${username}/${repo}`);
-            const response = await this._makeGitHubRequest(
-                `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`,
-                'GET',
-                token
+            const response = await this._requestQueue.add(() =>
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`,
+                    'GET',
+                    token
+                )
             );
             
             if (response.ok) {
@@ -1069,6 +1131,9 @@ export default class ConfigSyncExtension extends Extension {
         });
     }
     
+    /**
+     * NEW: GitHub Tree API based sync - batches all file changes into a single commit
+     */
     async _syncToGitHub() {
         const token = this._settings.get_string('github-token');
         const repo = this._settings.get_string('github-repo');
@@ -1079,25 +1144,343 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         try {
+            log('Starting GitHub Tree API batch sync');
+            
             // Create backup data (without wallpapers in main config)
             const backupData = await this._createBackup();
             
-            // Upload gsettings as JSON (no wallpapers included)
-            await this._uploadToGitHub(backupData, token, username, repo);
+            // Prepare all changes for batching
+            const treeChanges = [];
             
-            // Upload individual files
-            await this._uploadFilesToGitHub(token, username, repo);
+            // 1. Add main config file
+            const configContent = JSON.stringify({
+                timestamp: backupData.timestamp,
+                gsettings: backupData.gsettings
+            }, null, 2);
             
-            // Upload wallpapers separately if enabled
-            const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
-            if (syncWallpapers) {
-                await this._uploadWallpapersToGitHub(token, username, repo);
+            if (await this._shouldUploadContent('config-backup.json', configContent)) {
+                treeChanges.push({
+                    path: 'config-backup.json',
+                    mode: '100644',
+                    type: 'blob',
+                    content: configContent
+                });
+                log('Added config-backup.json to batch');
+            } else {
+                log('Skipping config-backup.json - content unchanged');
             }
             
-            log('Successfully synced to GitHub');
+            // 2. Add individual files
+            const filePaths = this._settings.get_strv('sync-files');
+            for (const filePath of filePaths) {
+                try {
+                    const expandedPath = filePath.replace('~', GLib.get_home_dir());
+                    const file = Gio.File.new_for_path(expandedPath);
+                    
+                    if (!file.query_exists(null)) {
+                        log(`File ${filePath} does not exist, skipping`);
+                        continue;
+                    }
+                    
+                    // Read file content
+                    const [success, contents] = file.load_contents(null);
+                    if (!success) {
+                        log(`Failed to read file ${filePath}`);
+                        continue;
+                    }
+                    
+                    // Check if file is likely text (basic check)
+                    const content = new TextDecoder('utf-8', { fatal: false }).decode(contents);
+                    if (content.includes('\uFFFD')) {
+                        log(`Skipping ${filePath}: appears to be binary`);
+                        continue;
+                    }
+                    
+                    // Create GitHub path
+                    const githubPath = `files${filePath.replace('~', '/home')}`;
+                    
+                    if (await this._shouldUploadContent(githubPath, content)) {
+                        treeChanges.push({
+                            path: githubPath,
+                            mode: '100644',
+                            type: 'blob',
+                            content: content
+                        });
+                        log(`Added ${githubPath} to batch`);
+                    } else {
+                        log(`Skipping ${githubPath} - content unchanged`);
+                    }
+                    
+                } catch (e) {
+                    log(`Failed to prepare file ${filePath} for batch: ${e.message}`);
+                }
+            }
+            
+            // 3. Add wallpapers if enabled
+            const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
+            if (syncWallpapers && this._wallpaperData.size > 0) {
+                for (const [wallpaperKey, wallpaperData] of this._wallpaperData) {
+                    try {
+                        const wallpaperContent = await this._getWallpaperContent(wallpaperKey);
+                        if (wallpaperContent) {
+                            const githubPath = `wallpapers/${wallpaperContent.fileName}`;
+                            
+                            // For wallpapers, we need to check content hash differently since it's base64
+                            const contentHash = GLib.compute_checksum_for_string(
+                                GLib.ChecksumType.SHA256, wallpaperContent.content, -1
+                            );
+                            
+                            if (this._contentHashCache.get(githubPath) !== contentHash) {
+                                treeChanges.push({
+                                    path: githubPath,
+                                    mode: '100644',
+                                    type: 'blob',
+                                    content: wallpaperContent.content,
+                                    encoding: 'base64'
+                                });
+                                this._contentHashCache.set(githubPath, contentHash);
+                                log(`Added wallpaper ${githubPath} to batch`);
+                            } else {
+                                log(`Skipping wallpaper ${githubPath} - content unchanged`);
+                            }
+                        }
+                    } catch (e) {
+                        log(`Failed to prepare wallpaper ${wallpaperKey} for batch: ${e.message}`);
+                    }
+                }
+            }
+            
+            // If no changes to upload, skip the commit
+            if (treeChanges.length === 0) {
+                log('No changes detected, skipping GitHub commit');
+                return;
+            }
+            
+            log(`Batching ${treeChanges.length} changes into single commit`);
+            
+            // Upload using GitHub Tree API
+            await this._uploadBatchedChanges(treeChanges, token, username, repo);
+            
+            // Clear wallpaper data after upload
+            this._wallpaperData.clear();
+            
+            log(`Successfully synced ${treeChanges.length} changes to GitHub using Tree API`);
         } catch (error) {
             log(`Failed to sync to GitHub: ${error.message}`);
             throw error;
+        }
+    }
+    
+    /**
+     * Check if content should be uploaded based on hash comparison
+     */
+    async _shouldUploadContent(path, content) {
+        const contentHash = GLib.compute_checksum_for_string(
+            GLib.ChecksumType.SHA256, content, -1
+        );
+        
+        if (this._contentHashCache.get(path) === contentHash) {
+            return false; // Content unchanged
+        }
+        
+        // Update cache
+        this._contentHashCache.set(path, contentHash);
+        return true;
+    }
+    
+    /**
+     * Upload batched changes using GitHub Tree API
+     */
+    async _uploadBatchedChanges(treeChanges, token, username, repo) {
+        try {
+            // 1. Get current commit SHA using request queue
+            log('Getting current commit SHA');
+            const branchResponse = await this._requestQueue.add(() =>
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/git/refs/heads/main`,
+                    'GET',
+                    token
+                )
+            );
+            
+            let currentCommitSha;
+            if (branchResponse.ok) {
+                const branchData = JSON.parse(branchResponse.data);
+                currentCommitSha = branchData.object.sha;
+                log(`Current commit SHA: ${currentCommitSha}`);
+            } else if (branchResponse.status === 404) {
+                // Repository is empty, we'll create the first commit
+                log('Repository is empty, will create initial commit');
+                currentCommitSha = null;
+            } else {
+                throw new Error(`Failed to get current commit: ${branchResponse.status}`);
+            }
+            
+            // 2. Get current tree SHA (if we have a current commit)
+            let currentTreeSha = null;
+            if (currentCommitSha) {
+                log('Getting current tree SHA');
+                const commitResponse = await this._requestQueue.add(() =>
+                    this._makeGitHubRequest(
+                        `https://api.github.com/repos/${username}/${repo}/git/commits/${currentCommitSha}`,
+                        'GET',
+                        token
+                    )
+                );
+                
+                if (commitResponse.ok) {
+                    const commitData = JSON.parse(commitResponse.data);
+                    currentTreeSha = commitData.tree.sha;
+                    log(`Current tree SHA: ${currentTreeSha}`);
+                } else {
+                    throw new Error(`Failed to get current tree: ${commitResponse.status}`);
+                }
+            }
+            
+            // 3. Create blobs for all content first
+            log('Creating blobs for changed content');
+            const treeEntries = [];
+            
+            for (const change of treeChanges) {
+                try {
+                    const blobData = {
+                        content: change.content,
+                        encoding: change.encoding || 'utf-8'
+                    };
+                    
+                    const blobResponse = await this._requestQueue.add(() =>
+                        this._makeGitHubRequest(
+                            `https://api.github.com/repos/${username}/${repo}/git/blobs`,
+                            'POST',
+                            token,
+                            blobData
+                        )
+                    );
+                    
+                    if (blobResponse.ok) {
+                        const blob = JSON.parse(blobResponse.data);
+                        treeEntries.push({
+                            path: change.path,
+                            mode: change.mode,
+                            type: 'blob',
+                            sha: blob.sha
+                        });
+                        log(`Created blob for ${change.path}: ${blob.sha}`);
+                    } else {
+                        log(`Failed to create blob for ${change.path}: ${blobResponse.status}`);
+                    }
+                } catch (e) {
+                    log(`Error creating blob for ${change.path}: ${e.message}`);
+                }
+            }
+            
+            if (treeEntries.length === 0) {
+                throw new Error('No blobs were created successfully');
+            }
+            
+            // 4. Create new tree
+            log(`Creating new tree with ${treeEntries.length} entries`);
+            const treeData = {
+                tree: treeEntries,
+                ...(currentTreeSha && { base_tree: currentTreeSha })
+            };
+            
+            const treeResponse = await this._requestQueue.add(() =>
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/git/trees`,
+                    'POST',
+                    token,
+                    treeData
+                )
+            );
+            
+            if (!treeResponse.ok) {
+                throw new Error(`Failed to create tree: ${treeResponse.status} - ${treeResponse.data}`);
+            }
+            
+            const newTree = JSON.parse(treeResponse.data);
+            log(`Created new tree: ${newTree.sha}`);
+            
+            // 5. Create commit
+            const commitMessage = `Batch sync ${treeEntries.length} files - ${new Date().toISOString()}`;
+            log(`Creating commit: ${commitMessage}`);
+            
+            const commitData = {
+                message: commitMessage,
+                tree: newTree.sha,
+                ...(currentCommitSha && { parents: [currentCommitSha] })
+            };
+            
+            const commitResponse = await this._requestQueue.add(() =>
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/git/commits`,
+                    'POST',
+                    token,
+                    commitData
+                )
+            );
+            
+            if (!commitResponse.ok) {
+                throw new Error(`Failed to create commit: ${commitResponse.status} - ${commitResponse.data}`);
+            }
+            
+            const newCommit = JSON.parse(commitResponse.data);
+            log(`Created commit: ${newCommit.sha}`);
+            
+            // 6. Update branch reference
+            log('Updating branch reference');
+            const refData = {
+                sha: newCommit.sha,
+                force: false
+            };
+            
+            const refResponse = await this._requestQueue.add(() =>
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/git/refs/heads/main`,
+                    'PATCH',
+                    token,
+                    refData
+                )
+            );
+            
+            if (!refResponse.ok) {
+                throw new Error(`Failed to update branch: ${refResponse.status} - ${refResponse.data}`);
+            }
+            
+            log(`Successfully uploaded batch of ${treeEntries.length} files in single commit ${newCommit.sha.substring(0, 7)}`);
+            
+        } catch (error) {
+            log(`Batch upload failed: ${error.message}`);
+            throw error;
+        }
+    }
+    
+    /**
+     * Load wallpaper content on-demand instead of storing in memory
+     */
+    async _getWallpaperContent(wallpaperKey) {
+        const wallpaperData = this._wallpaperData.get(wallpaperKey);
+        if (!wallpaperData || !wallpaperData.filePath) {
+            return null;
+        }
+        
+        try {
+            const file = Gio.File.new_for_path(wallpaperData.filePath);
+            const [success, contents] = file.load_contents(null);
+            
+            if (!success) {
+                log(`Failed to read wallpaper: ${wallpaperData.filePath}`);
+                return null;
+            }
+            
+            return {
+                content: GLib.base64_encode(contents),
+                size: contents.length,
+                ...wallpaperData
+            };
+        } catch (e) {
+            log(`Error reading wallpaper ${wallpaperKey}: ${e.message}`);
+            return null;
         }
     }
     
@@ -1241,27 +1624,19 @@ export default class ConfigSyncExtension extends Extension {
                     return;
                 }
                 
-                // Read the wallpaper file
-                const [success, contents] = file.load_contents(null);
-                if (!success) {
-                    log(`Failed to read wallpaper file: ${filePath}`);
-                    return;
-                }
-                
-                // Store wallpaper info for upload
+                // Store file info instead of content (load on-demand)
                 const fileName = file.get_basename();
                 const wallpaperKey = `${schema}-${key}`;
                 
                 this._wallpaperData.set(wallpaperKey, {
-                    originalPath: filePath,
+                    filePath: filePath,
                     fileName: fileName,
-                    content: GLib.base64_encode(contents),
-                    size: contents.length,
                     schema: schema,
                     key: key
+                    // Don't store content here - load when needed
                 });
                 
-                log(`Tracked wallpaper for upload: ${fileName} (${contents.length} bytes) for ${wallpaperKey}`);
+                log(`Tracked wallpaper for upload: ${fileName} for ${wallpaperKey}`);
             }
         } catch (e) {
             log(`Failed to track wallpaper ${schema}.${key}: ${e.message}`);
@@ -1365,120 +1740,93 @@ export default class ConfigSyncExtension extends Extension {
         return originalValue;
     }
     
-    async _uploadToGitHub(data, token, username, repo) {
-        // Upload only gsettings to the main config file (no wallpapers)
-        const configData = {
-            timestamp: data.timestamp,
-            gsettings: data.gsettings
-        };
-        
-        const content = JSON.stringify(configData, null, 2);
-        const encodedContent = GLib.base64_encode(new TextEncoder().encode(content));
-        
-        // Get current file SHA if it exists
-        let sha = null;
-        try {
-            const getResponse = await this._makeGitHubRequest(
+    async _downloadFromGitHub(token, username, repo) {
+        const response = await this._requestQueue.add(() =>
+            this._makeGitHubRequest(
                 `https://api.github.com/repos/${username}/${repo}/contents/config-backup.json`,
                 'GET',
                 token
-            );
-            
-            if (getResponse.ok) {
-                const fileData = JSON.parse(getResponse.data);
-                sha = fileData.sha;
-            }
-        } catch (e) {
-            // File doesn't exist, which is fine
-        }
-        
-        // Upload/update main config file
-        const uploadData = {
-            message: `Config backup ${new Date().toISOString()}`,
-            content: encodedContent,
-            ...(sha && { sha })
-        };
-        
-        const response = await this._makeGitHubRequest(
-            `https://api.github.com/repos/${username}/${repo}/contents/config-backup.json`,
-            'PUT',
-            token,
-            uploadData
+            )
         );
         
         if (!response.ok) {
-            throw new Error(`GitHub upload failed: ${response.status} - ${response.data}`);
+            if (response.status === 404) {
+                log('No backup found on GitHub, skipping restore');
+                return null;
+            }
+            throw new Error(`GitHub download failed: ${response.status}`);
         }
         
-        log('Config backup uploaded to GitHub (wallpapers handled separately)');
+        const fileData = JSON.parse(response.data);
+        const content = new TextDecoder().decode(GLib.base64_decode(fileData.content));
+        const backup = JSON.parse(content);
+        
+        log('Downloaded main config from GitHub (wallpapers handled separately)');
+        return backup;
     }
     
-    async _uploadWallpapersToGitHub(token, username, repo) {
-        if (this._wallpaperData.size === 0) {
-            log('No wallpapers to upload');
-            return;
-        }
+    async _downloadFilesFromGitHub(token, username, repo) {
+        const filePaths = this._settings.get_strv('sync-files');
         
-        log(`Uploading ${this._wallpaperData.size} wallpapers to GitHub`);
-        
-        for (const [wallpaperKey, wallpaperData] of this._wallpaperData) {
+        for (const filePath of filePaths) {
             try {
-                const githubPath = `wallpapers/${wallpaperData.fileName}`;
-                log(`Uploading wallpaper: ${wallpaperData.fileName} to ${githubPath}`);
+                // Create GitHub path
+                const githubPath = `files${filePath.replace('~', '/home')}`;
                 
-                // Get current file SHA if it exists
-                let sha = null;
-                try {
-                    const getResponse = await this._makeGitHubRequest(
+                log(`Downloading file from ${githubPath} to ${filePath}`);
+                
+                const response = await this._requestQueue.add(() =>
+                    this._makeGitHubRequest(
                         `https://api.github.com/repos/${username}/${repo}/contents/${githubPath}`,
                         'GET',
                         token
-                    );
-                    
-                    if (getResponse.ok) {
-                        const fileData = JSON.parse(getResponse.data);
-                        sha = fileData.sha;
-                    }
-                } catch (e) {
-                    // File doesn't exist, which is fine
-                }
-                
-                // Upload wallpaper file (already base64 encoded)
-                const uploadData = {
-                    message: `Upload wallpaper ${wallpaperData.fileName} - ${new Date().toISOString()}`,
-                    content: wallpaperData.content,
-                    ...(sha && { sha })
-                };
-                
-                const response = await this._makeGitHubRequest(
-                    `https://api.github.com/repos/${username}/${repo}/contents/${githubPath}`,
-                    'PUT',
-                    token,
-                    uploadData
+                    )
                 );
                 
-                if (!response.ok) {
-                    log(`Failed to upload wallpaper ${wallpaperData.fileName}: ${response.status} - ${response.data}`);
+                if (response.ok) {
+                    const fileData = JSON.parse(response.data);
+                    const content = new TextDecoder().decode(GLib.base64_decode(fileData.content));
+                    
+                    // Restore file
+                    const expandedPath = filePath.replace('~', GLib.get_home_dir());
+                    const file = Gio.File.new_for_path(expandedPath);
+                    
+                    // Create directory if it doesn't exist
+                    const parent = file.get_parent();
+                    if (!parent.query_exists(null)) {
+                        parent.make_directory_with_parents(null);
+                    }
+                    
+                    file.replace_contents(
+                        new TextEncoder().encode(content),
+                        null,
+                        false,
+                        Gio.FileCreateFlags.REPLACE_DESTINATION,
+                        null
+                    );
+                    
+                    log(`Successfully restored file ${filePath}`);
+                } else if (response.status === 404) {
+                    log(`File ${githubPath} not found in repository, skipping`);
                 } else {
-                    log(`Successfully uploaded wallpaper: ${wallpaperData.fileName}`);
+                    log(`Failed to download ${githubPath}: ${response.status}`);
                 }
                 
             } catch (e) {
-                log(`Failed to upload wallpaper ${wallpaperKey}: ${e.message}`);
+                log(`Failed to download file ${filePath}: ${e.message}`);
             }
         }
-        
-        // Clear wallpaper data after upload
-        this._wallpaperData.clear();
     }
     
     async _downloadAndRestoreWallpapers(token, username, repo) {
         try {
             // Get list of wallpapers from GitHub
-            const response = await this._makeGitHubRequest(
-                `https://api.github.com/repos/${username}/${repo}/contents/wallpapers`,
-                'GET',
-                token
+            const response = await this._requestQueue.add(() =>
+                this._makeGitHubRequest(
+                    `https://api.github.com/repos/${username}/${repo}/contents/wallpapers`,
+                    'GET',
+                    token
+                )
             );
             
             if (!response.ok) {
@@ -1510,17 +1858,19 @@ export default class ConfigSyncExtension extends Extension {
                 }
             }
             
-            // Download each wallpaper file
+            // Download each wallpaper file using request queue
             for (const fileInfo of wallpaperFiles) {
                 if (fileInfo.type !== 'file') continue;
                 
                 try {
                     log(`Downloading wallpaper: ${fileInfo.name}`);
                     
-                    const fileResponse = await this._makeGitHubRequest(
-                        fileInfo.download_url || fileInfo.url,
-                        'GET',
-                        token
+                    const fileResponse = await this._requestQueue.add(() =>
+                        this._makeGitHubRequest(
+                            fileInfo.download_url || fileInfo.url,
+                            'GET',
+                            token
+                        )
                     );
                     
                     if (fileResponse.ok) {
@@ -1561,172 +1911,14 @@ export default class ConfigSyncExtension extends Extension {
         }
     }
     
-    async _uploadFilesToGitHub(token, username, repo) {
-        const filePaths = this._settings.get_strv('sync-files');
-        
-        for (const filePath of filePaths) {
-            try {
-                const expandedPath = filePath.replace('~', GLib.get_home_dir());
-                const file = Gio.File.new_for_path(expandedPath);
-                
-                if (!file.query_exists(null)) {
-                    log(`File ${filePath} does not exist, skipping`);
-                    continue;
-                }
-                
-                // Read file content
-                const [success, contents] = file.load_contents(null);
-                if (!success) {
-                    log(`Failed to read file ${filePath}`);
-                    continue;
-                }
-                
-                // Check if file is likely text (basic check)
-                const content = new TextDecoder('utf-8', { fatal: false }).decode(contents);
-                if (content.includes('\uFFFD')) {
-                    log(`Skipping ${filePath}: appears to be binary`);
-                    continue;
-                }
-                
-                // Create GitHub path (replace ~ with home and remove leading slash)
-                const githubPath = `files${filePath.replace('~', '/home')}`;
-                
-                log(`Uploading file ${filePath} to ${githubPath}`);
-                
-                // Upload file to GitHub
-                await this._uploadFileToGitHub(githubPath, content, token, username, repo);
-                
-                log(`Successfully uploaded ${filePath}`);
-                
-            } catch (e) {
-                log(`Failed to upload file ${filePath}: ${e.message}`);
-            }
-        }
-    }
-    
-    async _uploadFileToGitHub(path, content, token, username, repo) {
-        const encodedContent = GLib.base64_encode(new TextEncoder().encode(content));
-        
-        // Get current file SHA if it exists
-        let sha = null;
-        try {
-            const getResponse = await this._makeGitHubRequest(
-                `https://api.github.com/repos/${username}/${repo}/contents/${path}`,
-                'GET',
-                token
-            );
-            
-            if (getResponse.ok) {
-                const fileData = JSON.parse(getResponse.data);
-                sha = fileData.sha;
-            }
-        } catch (e) {
-            // File doesn't exist, which is fine
-        }
-        
-        // Upload/update file
-        const uploadData = {
-            message: `Update ${path} - ${new Date().toISOString()}`,
-            content: encodedContent,
-            ...(sha && { sha })
-        };
-        
-        const response = await this._makeGitHubRequest(
-            `https://api.github.com/repos/${username}/${repo}/contents/${path}`,
-            'PUT',
-            token,
-            uploadData
-        );
-        
-        if (!response.ok) {
-            throw new Error(`GitHub file upload failed: ${response.status} - ${response.data}`);
-        }
-    }
-    
-    async _downloadFromGitHub(token, username, repo) {
-        const response = await this._makeGitHubRequest(
-            `https://api.github.com/repos/${username}/${repo}/contents/config-backup.json`,
-            'GET',
-            token
-        );
-        
-        if (!response.ok) {
-            if (response.status === 404) {
-                log('No backup found on GitHub, skipping restore');
-                return null;
-            }
-            throw new Error(`GitHub download failed: ${response.status}`);
-        }
-        
-        const fileData = JSON.parse(response.data);
-        const content = new TextDecoder().decode(GLib.base64_decode(fileData.content));
-        const backup = JSON.parse(content);
-        
-        log('Downloaded main config from GitHub (wallpapers handled separately)');
-        return backup;
-    }
-    
-    async _downloadFilesFromGitHub(token, username, repo) {
-        const filePaths = this._settings.get_strv('sync-files');
-        
-        for (const filePath of filePaths) {
-            try {
-                // Create GitHub path
-                const githubPath = `files${filePath.replace('~', '/home')}`;
-                
-                log(`Downloading file from ${githubPath} to ${filePath}`);
-                
-                const response = await this._makeGitHubRequest(
-                    `https://api.github.com/repos/${username}/${repo}/contents/${githubPath}`,
-                    'GET',
-                    token
-                );
-                
-                if (response.ok) {
-                    const fileData = JSON.parse(response.data);
-                    const content = new TextDecoder().decode(GLib.base64_decode(fileData.content));
-                    
-                    // Restore file
-                    const expandedPath = filePath.replace('~', GLib.get_home_dir());
-                    const file = Gio.File.new_for_path(expandedPath);
-                    
-                    // Create directory if it doesn't exist
-                    const parent = file.get_parent();
-                    if (!parent.query_exists(null)) {
-                        parent.make_directory_with_parents(null);
-                    }
-                    
-                    file.replace_contents(
-                        new TextEncoder().encode(content),
-                        null,
-                        false,
-                        Gio.FileCreateFlags.REPLACE_DESTINATION,
-                        null
-                    );
-                    
-                    log(`Successfully restored file ${filePath}`);
-                } else if (response.status === 404) {
-                    log(`File ${githubPath} not found in repository, skipping`);
-                } else {
-                    log(`Failed to download ${githubPath}: ${response.status}`);
-                }
-                
-            } catch (e) {
-                log(`Failed to download file ${filePath}: ${e.message}`);
-            }
-        }
-    }
-    
     _makeGitHubRequest(url, method, token, data = null) {
         return new Promise((resolve, reject) => {
             try {
-                const session = new Soup.Session();
                 const message = Soup.Message.new(method, url);
                 
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.8.2');
                 
                 if (data) {
                     const json = JSON.stringify(data);
@@ -1736,7 +1928,8 @@ export default class ConfigSyncExtension extends Extension {
                     );
                 }
                 
-                session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null, (session, result) => {
+                // Reuse HTTP session
+                this._httpSession.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null, (session, result) => {
                     try {
                         const bytes = session.send_and_read_finish(result);
                         const data = new TextDecoder().decode(bytes.get_data());
@@ -1763,53 +1956,5 @@ export default class ConfigSyncExtension extends Extension {
         } catch (error) {
             log(`Failed to open preferences: ${error.message}`);
         }
-    }
-    
-    // Debug method to manually test schema detection
-    debugSchemas() {
-        log('=== DEBUG: Testing schema detection ===');
-        const baseSchemas = this._settings.get_strv('gsettings-schemas');
-        const syncWallpapers = this._settings.get_boolean('sync-wallpapers');
-        const allSchemas = [...baseSchemas];
-        
-        if (syncWallpapers) {
-            allSchemas.push('org.gnome.desktop.background');
-            allSchemas.push('org.gnome.desktop.screensaver');
-        }
-        
-        log(`Total schemas to check: ${allSchemas.length}`);
-        log(`Base schemas: ${baseSchemas.join(', ')}`);
-        log(`Wallpaper syncing: ${syncWallpapers}`);
-        
-        let availableCount = 0;
-        try {
-            const schemaSource = Gio.SettingsSchemaSource.get_default();
-            if (!schemaSource) {
-                log('ERROR: Could not get schema source');
-                return;
-            }
-            
-            for (const schema of allSchemas) {
-                try {
-                    const schemaObj = schemaSource.lookup(schema, true);
-                    if (schemaObj) {
-                        availableCount++;
-                        // Try to actually create settings to verify it works
-                        const settings = new Gio.Settings({schema: schema});
-                        const keys = settings.list_keys();
-                        log(`✓ ${schema} - ${keys.length} keys`);
-                    } else {
-                        log(`✗ ${schema} - not found`);
-                    }
-                } catch (e) {
-                    log(`✗ ${schema} - error: ${e.message}`);
-                }
-            }
-        } catch (e) {
-            log(`ERROR: ${e.message}`);
-        }
-        
-        log(`=== Result: ${availableCount}/${allSchemas.length} schemas available ===`);
-        return availableCount;
     }
 }

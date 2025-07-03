@@ -27,4 +27,12 @@ dist:
 clean:
 	rm -rf $(DISTDIR)
 
-.PHONY: install uninstall dist clean
+# Performance test target for v2.9
+test-performance:
+	@echo "Testing v2.9 performance improvements..."
+	@echo "1. Enable the extension and monitor sync times"
+	@echo "2. Check panel menu for request queue status"
+	@echo "3. Monitor GitHub repository for batch commits"
+	@echo "4. Verify reduced API calls in GitHub rate limit usage"
+
+.PHONY: install uninstall dist clean test-performance

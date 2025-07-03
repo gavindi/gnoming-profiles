@@ -81,6 +81,65 @@
     }
 }
 
+/* NEW v2.9: Request queue activity indicator */
+.queue-active {
+    animation: queue-glow 1.5s ease-in-out infinite;
+    color: #2196f3 !important;
+}
+
+@keyframes queue-glow {
+    0%, 100% {
+        text-shadow: 0 0 3px rgba(33, 150, 243, 0.5);
+    }
+    50% {
+        text-shadow: 0 0 6px rgba(33, 150, 243, 0.8);
+    }
+}
+
+/* NEW v2.9: High queue activity warning */
+.queue-warning {
+    animation: queue-warning-flash 1s ease-in-out infinite;
+    color: #ff9800 !important;
+}
+
+@keyframes queue-warning-flash {
+    0%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 4px rgba(255, 152, 0, 0.6);
+    }
+    50% {
+        opacity: 0.8;
+        text-shadow: 0 0 8px rgba(255, 152, 0, 1);
+    }
+}
+
+/* NEW v2.9: Batching operation indicator */
+.batching {
+    animation: batch-processing 2s linear infinite;
+    color: #9c27b0 !important;
+}
+
+@keyframes batch-processing {
+    0% {
+        text-shadow: 0 0 4px rgba(156, 39, 176, 0.7);
+        transform: rotate(0deg);
+    }
+    25% {
+        text-shadow: 0 0 8px rgba(156, 39, 176, 0.9);
+    }
+    50% {
+        text-shadow: 0 0 6px rgba(156, 39, 176, 0.8);
+        transform: rotate(180deg);
+    }
+    75% {
+        text-shadow: 0 0 8px rgba(156, 39, 176, 0.9);
+    }
+    100% {
+        text-shadow: 0 0 4px rgba(156, 39, 176, 0.7);
+        transform: rotate(360deg);
+    }
+}
+
 /* Popup menu status indicators */
 .popup-menu-item.status-item {
     font-family: monospace;
@@ -95,9 +154,88 @@
     color: #4fc3f7;
 }
 
+/* NEW v2.9: Queue status styling */
+.popup-menu-item.queue-status {
+    color: #2196f3;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.popup-menu-item.queue-status.high-activity {
+    color: #ff9800;
+    font-weight: bold;
+}
+
 /* Preference window enhancements */
 .change-monitoring-group {
     background: rgba(102, 187, 106, 0.1);
     border-radius: 8px;
     border: 1px solid rgba(102, 187, 106, 0.3);
+}
+
+/* NEW v2.9: Performance indicators in preferences */
+.performance-v29-group {
+    background: rgba(33, 150, 243, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.performance-highlight {
+    background: linear-gradient(45deg, rgba(33, 150, 243, 0.1), rgba(156, 39, 176, 0.1));
+    border-radius: 6px;
+    padding: 8px;
+    border: 1px solid rgba(33, 150, 243, 0.2);
+}
+
+/* NEW v2.9: Success states for batch operations */
+.batch-success {
+    animation: success-flash 0.8s ease-out;
+    color: #4caf50 !important;
+}
+
+@keyframes success-flash {
+    0% {
+        text-shadow: 0 0 2px rgba(76, 175, 80, 0.5);
+        transform: scale(1);
+    }
+    50% {
+        text-shadow: 0 0 12px rgba(76, 175, 80, 1);
+        transform: scale(1.05);
+    }
+    100% {
+        text-shadow: 0 0 4px rgba(76, 175, 80, 0.7);
+        transform: scale(1);
+    }
+}
+
+/* NEW v2.9: Cache hit indicator (subtle) */
+.cache-hit {
+    color: #607d8b !important;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.cache-hit:hover {
+    opacity: 1;
+}
+
+/* NEW v2.9: Tree API batch indicator */
+.tree-api-batch {
+    animation: tree-processing 3s ease-in-out infinite;
+    color: #795548 !important;
+}
+
+@keyframes tree-processing {
+    0%, 100% {
+        text-shadow: 0 0 3px rgba(121, 85, 72, 0.6);
+        opacity: 0.9;
+    }
+    33% {
+        text-shadow: 0 0 6px rgba(121, 85, 72, 0.8);
+        opacity: 1;
+    }
+    66% {
+        text-shadow: 0 0 4px rgba(121, 85, 72, 0.7);
+        opacity: 0.95;
+    }
 }
