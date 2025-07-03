@@ -323,6 +323,11 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 - Action items (Sync Now, Settings) moved to bottom for better organization
 - Enhanced visual hierarchy with logical sections separated by dividers
 - Improved user experience with cleaner, more intuitive menu layout
+- **NEW: Sync Lock System**: Prevents concurrent sync operations and race conditions
+- Centralized sync operation management with smart queueing for different operation types
+- Enhanced user feedback with sync status indicators and disabled menu items during operations
+- Robust error handling ensures sync lock is always properly released
+- Eliminates GitHub API conflicts when multiple sync triggers occur simultaneously
 
 ### v2.7
 - **UI Cleanup**: Removed "Test GitHub Polling" from panel menu

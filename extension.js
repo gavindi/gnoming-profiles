@@ -89,6 +89,7 @@ class ConfigSyncIndicator extends PanelMenu.Button {
             this._extension.syncNow();
         });
         this.menu.addMenuItem(syncItem);
+        this._syncItem = syncItem;
         
         let settingsItem = new PopupMenu.PopupMenuItem(_('Settings'));
         settingsItem.connect('activate', () => {
@@ -138,6 +139,13 @@ class ConfigSyncIndicator extends PanelMenu.Button {
     
     updateStatus(message) {
         this._statusItem.label.text = message;
+    }
+    
+    updateSyncItemSensitivity(sensitive) {
+        if (this._syncItem) {
+            this._syncItem.sensitive = sensitive;
+            this._syncItem.label.text = sensitive ? _('Sync Now') : _('Sync in Progress...');
+        }
     }
     
     updateMonitoringStatus(isMonitoring, fileCount, schemaCount) {
@@ -199,6 +207,10 @@ export default class ConfigSyncExtension extends Extension {
         this._loginId = null;
         this._logoutId = null;
         
+        // Sync lock to prevent concurrent operations
+        this._isSyncing = false;
+        this._syncQueue = [];
+        
         // Change monitoring
         this._fileMonitors = new Map();
         this._settingsMonitors = new Map();
@@ -257,37 +269,16 @@ export default class ConfigSyncExtension extends Extension {
         
         // Initial setup and sync on enable
         if (this._settings.get_boolean('auto-sync-on-login')) {
-            this._indicator.startSyncAnimation();
-            this._indicator.updateStatus(_('Initial sync...'));
-            
-            // First try to restore from GitHub, then backup current config
-            this._syncFromGitHub().then(() => {
+            this._performSyncOperation('initial', async () => {
+                // First try to restore from GitHub, then backup current config
+                await this._syncFromGitHub();
                 // Also create an initial backup after restore
-                return this._syncToGitHub();
-            }).then(() => {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Extension loaded: ') + new Date().toLocaleTimeString());
-                // Update monitoring status after sync completes
-                this._setupChangeMonitoring();
-            }).catch(error => {
-                // If restore fails (e.g., no repo yet), try just doing a backup
-                log(`Initial restore failed, attempting backup: ${error.message}`);
-                return this._syncToGitHub();
-            }).then(() => {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Initial backup complete: ') + new Date().toLocaleTimeString());
-                // Update monitoring status after backup completes
-                this._setupChangeMonitoring();
-            }).catch(error => {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Initial sync failed: ') + error.message);
-                log(`Initial sync failed: ${error.message}`);
-                // Still update monitoring status even if sync fails
-                this._setupChangeMonitoring();
+                await this._syncToGitHub();
+                return 'Extension loaded';
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.8)');
+        log('Gnoming Profiles extension enabled (v2.8.1)');
     }
     
     disable() {
@@ -316,7 +307,91 @@ export default class ConfigSyncExtension extends Extension {
         this._sessionManager = null;
         this._wallpaperData.clear();
         
+        // Clear sync lock and queue
+        this._isSyncing = false;
+        this._syncQueue = [];
+        
         log('Gnoming Profiles extension disabled');
+    }
+    
+    /**
+     * Centralized sync operation wrapper that implements locking
+     * @param {string} operationType - Description of the operation (for logging/UI)
+     * @param {Function} syncFunction - Async function that performs the actual sync
+     * @param {boolean} allowQueue - Whether to queue this operation if another is in progress
+     */
+    async _performSyncOperation(operationType, syncFunction, allowQueue = false) {
+        // Check if sync is already in progress
+        if (this._isSyncing) {
+            log(`Sync operation "${operationType}" blocked: another sync in progress`);
+            
+            if (allowQueue) {
+                // Queue the operation for later
+                this._syncQueue.push({ operationType, syncFunction });
+                log(`Sync operation "${operationType}" queued`);
+                this._indicator.updateStatus(_('Sync queued: ') + operationType);
+                return;
+            } else {
+                // Reject the operation
+                this._indicator.updateStatus(_('Sync blocked: operation in progress'));
+                log(`Sync operation "${operationType}" rejected: not queueing`);
+                return;
+            }
+        }
+        
+        // Acquire sync lock
+        this._isSyncing = true;
+        this._indicator.updateSyncItemSensitivity(false);
+        this._indicator.startSyncAnimation();
+        this._indicator.updateStatus(_('Syncing: ') + operationType);
+        
+        log(`Starting sync operation: ${operationType}`);
+        
+        try {
+            // Perform the actual sync operation
+            const result = await syncFunction();
+            
+            // Success
+            this._indicator.stopSyncAnimation();
+            const successMessage = result || `${operationType} complete`;
+            this._indicator.updateStatus(successMessage + ': ' + new Date().toLocaleTimeString());
+            log(`Sync operation completed successfully: ${operationType}`);
+            
+        } catch (error) {
+            // Handle errors
+            this._indicator.stopSyncAnimation();
+            this._indicator.updateStatus(_(`${operationType} failed: `) + error.message);
+            log(`Sync operation failed: ${operationType} - ${error.message}`);
+            
+        } finally {
+            // Always release the lock
+            this._isSyncing = false;
+            this._indicator.updateSyncItemSensitivity(true);
+            
+            // Update monitoring status after sync completes
+            this._setupChangeMonitoring();
+            
+            // Process any queued operations
+            this._processNextQueuedSync();
+        }
+    }
+    
+    /**
+     * Process the next queued sync operation if any
+     */
+    _processNextQueuedSync() {
+        if (this._syncQueue.length === 0) {
+            return;
+        }
+        
+        const nextOperation = this._syncQueue.shift();
+        log(`Processing next queued sync operation: ${nextOperation.operationType}`);
+        
+        // Use a small delay to prevent immediate re-execution
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+            this._performSyncOperation(nextOperation.operationType, nextOperation.syncFunction, false);
+            return GLib.SOURCE_REMOVE;
+        });
     }
     
     _setupChangeMonitoring() {
@@ -489,18 +564,12 @@ export default class ConfigSyncExtension extends Extension {
             return;
         }
         
-        this._indicator.updateStatus(_('Syncing changes...'));
-        this._indicator.startSyncAnimation();
-        
-        // Only backup to GitHub on changes (don't restore from GitHub)
-        this._syncToGitHub().then(() => {
-            this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_('Change synced: ') + new Date().toLocaleTimeString());
-        }).catch(error => {
-            this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_('Change sync failed: ') + error.message);
-            log(`Change sync error: ${error.message}`);
-        });
+        // Use the centralized sync operation with queueing enabled for change-based syncs
+        this._performSyncOperation('changes', async () => {
+            // Only backup to GitHub on changes (don't restore from GitHub)
+            await this._syncToGitHub();
+            return 'Change synced';
+        }, true); // Allow queueing for change-based syncs
     }
     
     _stopChangeMonitoring() {
@@ -812,27 +881,15 @@ export default class ConfigSyncExtension extends Extension {
         
         if (autoSyncRemote) {
             log('GitHub polling: Starting auto-sync of remote changes');
-            if (this._indicator) {
-                this._indicator.updateStatus(_('Remote changes detected, syncing...'));
-                this._indicator.startSyncAnimation();
-            }
             
-            this._syncFromGitHub().then(() => {
-                log('GitHub polling: Remote sync completed successfully');
+            this._performSyncOperation('remote changes', async () => {
+                await this._syncFromGitHub();
                 if (this._indicator) {
-                    this._indicator.stopSyncAnimation();
-                    this._indicator.updateStatus(_('Remote sync complete: ') + new Date().toLocaleTimeString());
                     this._indicator.clearRemoteChanges();
                 }
                 this._remoteChangesDetected = false;
-            }).catch(error => {
-                log(`GitHub polling: Remote sync failed: ${error.message}`);
-                if (this._indicator) {
-                    this._indicator.stopSyncAnimation();
-                    this._indicator.updateStatus(_('Remote sync failed: ') + error.message);
-                }
-                // Keep the remote changes indicator visible so user can manually sync
-            });
+                return 'Remote sync complete';
+            }, true); // Allow queueing for remote sync
         } else {
             log('GitHub polling: Auto-sync disabled, showing manual pull option');
             if (this._indicator) {
@@ -925,15 +982,9 @@ export default class ConfigSyncExtension extends Extension {
     _onLogin() {
         log('Session login detected');
         if (this._settings.get_boolean('auto-sync-on-login')) {
-            this._indicator.startSyncAnimation();
-            this._indicator.updateStatus(_('Auto-syncing on login...'));
-            
-            this._syncFromGitHub().then(() => {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Login sync complete: ') + new Date().toLocaleTimeString());
-            }).catch(error => {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Login sync failed: ') + error.message);
+            this._performSyncOperation('login', async () => {
+                await this._syncFromGitHub();
+                return 'Login sync complete';
             });
         }
     }
@@ -941,15 +992,9 @@ export default class ConfigSyncExtension extends Extension {
     _onLogout() {
         log('Session logout detected');
         if (this._settings.get_boolean('auto-sync-on-logout')) {
-            this._indicator.startSyncAnimation();
-            this._indicator.updateStatus(_('Auto-syncing on logout...'));
-            
-            this._syncToGitHub().then(() => {
-                this._indicator.stopSyncAnimation();
-                log('Logout sync complete');
-            }).catch(error => {
-                this._indicator.stopSyncAnimation();
-                log(`Logout sync failed: ${error.message}`);
+            this._performSyncOperation('logout', async () => {
+                await this._syncToGitHub();
+                return 'Logout sync complete';
             });
         }
     }
@@ -981,63 +1026,31 @@ export default class ConfigSyncExtension extends Extension {
             return;
         }
         
-        this._indicator.startSyncAnimation();
-        this._indicator.updateStatus(_('Manual initial sync...'));
-        
-        // Perform initial backup (create backup of current settings)
-        this._syncToGitHub().then(() => {
-            this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_('Initial sync complete: ') + new Date().toLocaleTimeString());
-            log('Manual initial sync completed successfully');
-            // Update monitoring status to reflect any changes
-            this._setupChangeMonitoring();
-        }).catch(error => {
-            this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_('Initial sync failed: ') + error.message);
-            log(`Manual initial sync failed: ${error.message}`);
+        this._performSyncOperation('manual initial sync', async () => {
+            // Perform initial backup (create backup of current settings)
+            await this._syncToGitHub();
+            return 'Initial sync complete';
         });
     }
     
     syncNow() {
-        this._indicator.updateStatus(_('Syncing...'));
-        this._indicator.startSyncAnimation();
-        
-        // First backup current config, then sync from GitHub
-        this._syncToGitHub().then(() => {
-            return this._syncFromGitHub();
-        }).then(() => {
-            this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_('Last sync: ') + new Date().toLocaleTimeString());
-        }).catch(error => {
-            this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_('Sync failed: ') + error.message);
-            log(`Sync error: ${error.message}`);
+        this._performSyncOperation('manual sync', async () => {
+            // First backup current config, then sync from GitHub
+            await this._syncToGitHub();
+            await this._syncFromGitHub();
+            return 'Manual sync complete';
         });
     }
     
     syncFromRemote() {
-        if (!this._indicator) {
-            log('Cannot sync from remote: indicator not available');
-            return;
-        }
-        
-        this._indicator.updateStatus(_('Pulling remote changes...'));
-        this._indicator.startSyncAnimation();
-        
-        // Only sync from GitHub (don't backup first)
-        this._syncFromGitHub().then(() => {
+        this._performSyncOperation('remote pull', async () => {
+            // Only sync from GitHub (don't backup first)
+            await this._syncFromGitHub();
             if (this._indicator) {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Remote sync complete: ') + new Date().toLocaleTimeString());
                 this._indicator.clearRemoteChanges();
             }
             this._remoteChangesDetected = false;
-        }).catch(error => {
-            if (this._indicator) {
-                this._indicator.stopSyncAnimation();
-                this._indicator.updateStatus(_('Remote sync failed: ') + error.message);
-            }
-            log(`Remote sync error: ${error.message}`);
+            return 'Remote pull complete';
         });
     }
     
@@ -1698,7 +1711,7 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
-                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.8');
+                message.request_headers.append('User-Agent', 'GNOME-Config-Sync/2.8.1');
                 
                 if (data) {
                     const json = JSON.stringify(data);
