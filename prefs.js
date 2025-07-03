@@ -626,7 +626,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const v28Row = new Adw.ActionRow({
             title: _('v2.8 (Current)'),
-            subtitle: _('• NEW: Reorganized panel menu structure\n• Extension name now appears at top of menu\n• Status information grouped in middle section\n• Action items (Sync Now, Settings) moved to bottom\n• Enhanced visual hierarchy with logical sections\n• Improved user experience with cleaner menu layout')
+            subtitle: _('• NEW: Reorganized panel menu structure\n• Extension name now appears at top of menu\n• Status information grouped in middle section\n• Action items (Sync Now, Settings) moved to bottom\n• Enhanced visual hierarchy with logical sections\n• Improved user experience with cleaner menu layout\n• NEW: Sync Lock System prevents concurrent operations\n• Centralized sync management with smart queueing\n• Enhanced user feedback during sync operations\n• Eliminates GitHub API conflicts and race conditions')
         });
         changelogGroup.add(v28Row);
         
