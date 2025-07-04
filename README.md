@@ -200,6 +200,9 @@ Wallpaper syncing is **disabled by default** but can be enabled in preferences. 
 - **Batched Upload**: Wallpapers are uploaded together with other files in single commits
 - **On-Demand Loading**: Wallpaper content is loaded only when needed, reducing memory usage
 - **Content Caching**: SHA-based detection prevents re-uploading unchanged wallpapers
+- **Smart Validation**: Automatically skips missing, empty, or oversized files (50MB+ limit)
+- **Content Type Checking**: Validates files are actually images before syncing
+- **Graceful Error Handling**: Missing wallpapers don't break the sync process
 
 ### **What Gets Synced with New Default Schemas**
 
@@ -425,10 +428,13 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
 
 ### Wallpaper Sync Issues (v2.9+)
 1. **"JSON.parse: unexpected character" error**: Fixed in v2.9 - extension now properly handles both GitHub API responses and direct file downloads
-2. **Large wallpaper files**: May increase sync time (mitigated by batching)
-3. **Wallpaper not restored**: Check `~/.local/share/gnoming-profiles/wallpapers/` directory
-4. **Path issues**: Extension automatically updates GSettings URIs to point to restored files
-5. **Binary corruption**: Fixed - extension now preserves binary integrity during download
+2. **"Wallpaper file no longer exists" message**: This is normal when wallpapers are deleted or moved - extension will skip missing files gracefully
+3. **Large wallpaper files**: Files over 10MB will show warnings; over 50MB are automatically skipped
+4. **Non-image files**: Extension validates content type and skips non-image files
+5. **Wallpaper not restored**: Check `~/.local/share/gnoming-profiles/wallpapers/` directory
+6. **Path issues**: Extension automatically updates GSettings URIs to point to restored files
+7. **Binary corruption**: Fixed - extension now preserves binary integrity during download
+8. **Empty files**: Zero-byte wallpaper files are automatically skipped
 
 ## Requirements
 
@@ -495,6 +501,12 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - Fixed "JSON.parse: unexpected character" error with custom wallpapers
   - Proper binary data handling for GitHub download URLs vs API URLs
   - Maintains file integrity during download and restoration
+- **IMPROVED: Wallpaper Validation**: Comprehensive file validation and error handling
+  - Graceful handling of missing, deleted, or moved wallpaper files
+  - Smart file size validation (50MB limit, 10MB warning)
+  - Content type checking for image files
+  - Extension-based validation as backup
+  - Clear logging messages distinguish normal conditions from errors
 - **ENHANCED: Panel Menu**: Added ETag and request queue status displays
   - Real-time visibility into ETag polling efficiency
   - Real-time visibility into pending and active GitHub requests

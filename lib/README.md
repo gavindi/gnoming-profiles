@@ -56,10 +56,12 @@ This directory contains the modular components of the Gnoming Profiles extension
 - **Purpose**: Wallpaper syncing and management
 - **Features**:
   - On-demand wallpaper loading
-  - URI path updating
+  - URI path updating and validation  
   - Download and restoration with binary integrity
   - Dual download method support (API vs direct download)
-- **Dependencies**: GitHubAPI
+  - Comprehensive file validation (size, type, existence)
+  - Graceful handling of missing or invalid files
+- **Dependencies**: GitHubAPI, Utils
 - **Usage**: Handles wallpaper image syncing
 
 #### `SyncManager.js`
@@ -92,6 +94,7 @@ This directory contains the modular components of the Gnoming Profiles extension
   - JSON parsing with error handling
   - Debouncing and throttling functions
   - GitHub-specific validation helpers
+  - Wallpaper file validation (size, type, URI parsing)
   - Retry logic and deep cloning
 - **Usage**: Shared utilities to reduce code duplication
 
