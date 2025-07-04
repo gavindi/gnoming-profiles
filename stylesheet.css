@@ -81,7 +81,84 @@
     }
 }
 
-/* NEW v2.9: Request queue activity indicator */
+/* NEW v2.9: ETag polling status indicators */
+.etag-cached {
+    animation: etag-ready 3s ease-in-out infinite;
+    color: #00bcd4 !important;
+}
+
+@keyframes etag-ready {
+    0%, 100% {
+        text-shadow: 0 0 3px rgba(0, 188, 212, 0.6);
+        opacity: 0.9;
+    }
+    50% {
+        text-shadow: 0 0 6px rgba(0, 188, 212, 0.8);
+        opacity: 1;
+    }
+}
+
+/* ETag 304 Not Modified indicator (very efficient) */
+.etag-not-modified {
+    animation: etag-efficient 4s ease-in-out infinite;
+    color: #4caf50 !important;
+}
+
+@keyframes etag-efficient {
+    0%, 100% {
+        text-shadow: 0 0 2px rgba(76, 175, 80, 0.5);
+        opacity: 0.8;
+    }
+    25% {
+        text-shadow: 0 0 4px rgba(76, 175, 80, 0.7);
+        opacity: 0.9;
+    }
+    50% {
+        text-shadow: 0 0 6px rgba(76, 175, 80, 0.9);
+        opacity: 1;
+    }
+    75% {
+        text-shadow: 0 0 4px rgba(76, 175, 80, 0.7);
+        opacity: 0.9;
+    }
+}
+
+/* ETag changes detected indicator */
+.etag-changes {
+    animation: etag-change-detected 1.5s ease-in-out 3;
+    color: #ff9800 !important;
+}
+
+@keyframes etag-change-detected {
+    0%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 4px rgba(255, 152, 0, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        text-shadow: 0 0 8px rgba(255, 152, 0, 1);
+        transform: scale(1.03);
+    }
+}
+
+/* ETag not available/error state */
+.etag-unavailable {
+    color: #9e9e9e !important;
+    opacity: 0.7;
+    animation: etag-unavailable-pulse 5s ease-in-out infinite;
+}
+
+@keyframes etag-unavailable-pulse {
+    0%, 100% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Request queue activity indicator */
 .queue-active {
     animation: queue-glow 1.5s ease-in-out infinite;
     color: #2196f3 !important;
@@ -96,7 +173,7 @@
     }
 }
 
-/* NEW v2.9: High queue activity warning */
+/* High queue activity warning */
 .queue-warning {
     animation: queue-warning-flash 1s ease-in-out infinite;
     color: #ff9800 !important;
@@ -113,7 +190,7 @@
     }
 }
 
-/* NEW v2.9: Batching operation indicator */
+/* Batching operation indicator */
 .batching {
     animation: batch-processing 2s linear infinite;
     color: #9c27b0 !important;
@@ -154,7 +231,7 @@
     color: #4fc3f7;
 }
 
-/* NEW v2.9: Queue status styling */
+/* Queue status styling */
 .popup-menu-item.queue-status {
     color: #2196f3;
     font-family: monospace;
@@ -166,6 +243,32 @@
     font-weight: bold;
 }
 
+/* NEW v2.9: ETag status styling in popup menu */
+.popup-menu-item.etag-status {
+    color: #00bcd4;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.popup-menu-item.etag-status.cached {
+    color: #4caf50;
+}
+
+.popup-menu-item.etag-status.not-modified {
+    color: #4caf50;
+    font-weight: bold;
+}
+
+.popup-menu-item.etag-status.changes-detected {
+    color: #ff9800;
+    font-weight: bold;
+}
+
+.popup-menu-item.etag-status.unavailable {
+    color: #9e9e9e;
+    font-style: italic;
+}
+
 /* Preference window enhancements */
 .change-monitoring-group {
     background: rgba(102, 187, 106, 0.1);
@@ -173,7 +276,14 @@
     border: 1px solid rgba(102, 187, 106, 0.3);
 }
 
-/* NEW v2.9: Performance indicators in preferences */
+/* ETag polling group styling */
+.etag-polling-group {
+    background: rgba(0, 188, 212, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 188, 212, 0.3);
+}
+
+/* Performance indicators in preferences */
 .performance-v29-group {
     background: rgba(33, 150, 243, 0.1);
     border-radius: 8px;
@@ -187,7 +297,15 @@
     border: 1px solid rgba(33, 150, 243, 0.2);
 }
 
-/* NEW v2.9: Success states for batch operations */
+/* NEW v2.9: ETag efficiency highlight */
+.etag-efficiency-highlight {
+    background: linear-gradient(45deg, rgba(0, 188, 212, 0.1), rgba(76, 175, 80, 0.1));
+    border-radius: 6px;
+    padding: 8px;
+    border: 1px solid rgba(0, 188, 212, 0.2);
+}
+
+/* Success states for batch operations */
 .batch-success {
     animation: success-flash 0.8s ease-out;
     color: #4caf50 !important;
@@ -208,7 +326,28 @@
     }
 }
 
-/* NEW v2.9: Cache hit indicator (subtle) */
+/* NEW v2.9: ETag success indicator */
+.etag-success {
+    animation: etag-success-flash 1s ease-out;
+    color: #4caf50 !important;
+}
+
+@keyframes etag-success-flash {
+    0% {
+        text-shadow: 0 0 2px rgba(76, 175, 80, 0.5);
+        opacity: 0.8;
+    }
+    30% {
+        text-shadow: 0 0 8px rgba(76, 175, 80, 0.9);
+        opacity: 1;
+    }
+    100% {
+        text-shadow: 0 0 4px rgba(76, 175, 80, 0.7);
+        opacity: 0.9;
+    }
+}
+
+/* Cache hit indicator (subtle) */
 .cache-hit {
     color: #607d8b !important;
     opacity: 0.8;
@@ -219,7 +358,7 @@
     opacity: 1;
 }
 
-/* NEW v2.9: Tree API batch indicator */
+/* Tree API batch indicator */
 .tree-api-batch {
     animation: tree-processing 3s ease-in-out infinite;
     color: #795548 !important;
@@ -237,5 +376,66 @@
     66% {
         text-shadow: 0 0 4px rgba(121, 85, 72, 0.7);
         opacity: 0.95;
+    }
+}
+
+/* NEW v2.9: Combined ETag and performance indicators */
+.etag-tree-combo {
+    animation: etag-tree-combined 4s ease-in-out infinite;
+    color: #673ab7 !important;
+}
+
+@keyframes etag-tree-combined {
+    0%, 100% {
+        text-shadow: 0 0 3px rgba(103, 58, 183, 0.6);
+        opacity: 0.9;
+    }
+    25% {
+        text-shadow: 0 0 6px rgba(0, 188, 212, 0.8);
+        opacity: 1;
+    }
+    50% {
+        text-shadow: 0 0 5px rgba(121, 85, 72, 0.7);
+        opacity: 0.95;
+    }
+    75% {
+        text-shadow: 0 0 6px rgba(156, 39, 176, 0.8);
+        opacity: 1;
+    }
+}
+
+/* Bandwidth savings indicator */
+.bandwidth-savings {
+    animation: bandwidth-efficient 3s ease-in-out infinite;
+    color: #009688 !important;
+}
+
+@keyframes bandwidth-efficient {
+    0%, 100% {
+        text-shadow: 0 0 3px rgba(0, 150, 136, 0.6);
+        opacity: 0.9;
+    }
+    50% {
+        text-shadow: 0 0 6px rgba(0, 150, 136, 0.9);
+        opacity: 1;
+        transform: scale(1.02);
+    }
+}
+
+/* 304 response indicator (very subtle and positive) */
+.not-modified-304 {
+    color: #4caf50 !important;
+    opacity: 0.9;
+    animation: not-modified-glow 6s ease-in-out infinite;
+}
+
+@keyframes not-modified-glow {
+    0%, 100% {
+        text-shadow: 0 0 2px rgba(76, 175, 80, 0.4);
+        opacity: 0.9;
+    }
+    50% {
+        text-shadow: 0 0 4px rgba(76, 175, 80, 0.6);
+        opacity: 1;
     }
 }

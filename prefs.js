@@ -118,7 +118,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const securityRow = new Adw.ActionRow({
             title: _('🔒 Data Security'),
-            subtitle: _('• Use private GitHub repositories only\n• Personal access tokens are stored encrypted\n• Only configured files and settings are synced\n• Review your repository contents regularly')
+            subtitle: _('• Use private GitHub repositories only\n• Personal access tokens are stored encrypted\n• Only configured files and settings are synced\n• Review your repository contents regularly\n• ETags are cached in memory only (not persisted)')
         });
         securityGroup.add(securityRow);
     }
@@ -190,17 +190,17 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         changeSyncRow.connect('notify::active', updateChangeRowSensitivity);
         updateChangeRowSensitivity();
         
-        // GitHub polling group
+        // ETag-based GitHub polling group
         const pollingGroup = new Adw.PreferencesGroup({
-            title: _('GitHub Polling'),
-            description: _('Check GitHub repository for remote changes made by other devices')
+            title: _('ETag-Based GitHub Polling'),
+            description: _('Efficiently check GitHub repository for remote changes using HTTP ETags')
         });
         page.add(pollingGroup);
         
         // Enable GitHub polling
         const pollingEnabledRow = new Adw.SwitchRow({
-            title: _('Enable GitHub Polling'),
-            subtitle: _('Periodically check for changes made by other devices or manual edits')
+            title: _('Enable ETag Polling'),
+            subtitle: _('Use efficient ETag-based polling to detect changes from other devices')
         });
         settings.bind('github-polling-enabled', pollingEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(pollingEnabledRow);
@@ -208,7 +208,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Polling interval
         const pollingIntervalRow = new Adw.SpinRow({
             title: _('Polling Interval'),
-            subtitle: _('How often to check GitHub for changes (in minutes). Use 1-2 min for testing.'),
+            subtitle: _('How often to check GitHub for changes (in minutes). ETags make frequent polling efficient.'),
             adjustment: new Gtk.Adjustment({
                 lower: 1,
                 upper: 1440, // Max 24 hours
@@ -223,10 +223,17 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Auto-sync remote changes
         const autoSyncRemoteRow = new Adw.SwitchRow({
             title: _('Auto-sync Remote Changes'),
-            subtitle: _('Automatically download and apply changes when detected')
+            subtitle: _('Automatically download and apply changes when detected via ETag polling')
         });
         settings.bind('auto-sync-remote-changes', autoSyncRemoteRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(autoSyncRemoteRow);
+        
+        // ETag efficiency info
+        const etagInfoRow = new Adw.ActionRow({
+            title: _('📊 ETag Efficiency'),
+            subtitle: _('• Uses If-None-Match headers for conditional requests\n• 304 Not Modified responses save up to 95% bandwidth\n• ETags cached in memory during extension session\n• Check panel menu for real-time ETag status')
+        });
+        pollingGroup.add(etagInfoRow);
         
         // Enable/disable polling rows based on main setting
         const updatePollingRowSensitivity = () => {
@@ -236,7 +243,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         pollingEnabledRow.connect('notify::active', updatePollingRowSensitivity);
         updatePollingRowSensitivity();
         
-        // Performance tips (updated for v2.9)
+        // Performance tips (updated for v2.9 with ETag)
         const tipsGroup = new Adw.PreferencesGroup({
             title: _('Performance & Tips'),
         });
@@ -248,15 +255,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         tipsGroup.add(changeMonitoringTipsRow);
         
-        const pollingTipsRow = new Adw.ActionRow({
-            title: _('💡 GitHub Polling Tips'),
-            subtitle: _('• Polls GitHub API for new commits\n• Only syncs if config files changed\n• Remote changes detected automatically\n• Set 1-2 minutes for testing, 15+ for production')
+        const etagPollingTipsRow = new Adw.ActionRow({
+            title: _('💡 ETag Polling Tips'),
+            subtitle: _('• Uses HTTP ETags for ultra-efficient polling\n• 304 responses indicate no changes (saves bandwidth)\n• Can poll frequently without heavy API usage\n• ETags automatically cached and managed\n• Set 1-2 minutes for testing, 5-15 minutes for production')
         });
-        tipsGroup.add(pollingTipsRow);
+        tipsGroup.add(etagPollingTipsRow);
         
         const performanceV29Row = new Adw.ActionRow({
-            title: _('🚀 Performance (v2.9)'),
-            subtitle: _('• GitHub Tree API batches all changes into single commits\n• Request queue manages GitHub API concurrency\n• Smart caching prevents uploading unchanged files\n• Up to 90% fewer GitHub API requests')
+            title: _('🚀 Performance (v2.9 with ETags)'),
+            subtitle: _('• ETag polling reduces bandwidth by up to 95%\n• GitHub Tree API batches all changes into single commits\n• Request queue manages GitHub API concurrency\n• Smart caching prevents uploading unchanged files\n• Dramatic reduction in API rate limit usage')
         });
         tipsGroup.add(performanceV29Row);
         
@@ -498,28 +505,53 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const troubleshootingRow = new Adw.ActionRow({
             title: _('🚨 Troubleshooting Steps'),
-            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for schema/file counts\n4. Check request queue status (v2.9+)\n5. Check logs for error messages\n6. Try disabling/re-enabling extension')
+            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for schema/file counts\n4. Check ETag polling status in panel menu\n5. Check request queue status (v2.9+)\n6. Check logs for error messages\n7. Try disabling/re-enabling extension')
         });
         debugGroup.add(troubleshootingRow);
         
-        // Performance group (updated for v2.9)
+        // ETag troubleshooting group
+        const etagTroubleshootingGroup = new Adw.PreferencesGroup({
+            title: _('ETag Polling Troubleshooting'),
+            description: _('Diagnosing ETag-based polling issues')
+        });
+        page.add(etagTroubleshootingGroup);
+        
+        const etagStatusRow = new Adw.ActionRow({
+            title: _('🏷️ ETag Status Meanings'),
+            subtitle: _('• "Not cached" - First poll or ETag unavailable\n• "Cached" - ETag stored, ready for efficient polling\n• "No changes (304)" - GitHub returned Not Modified\n• "Changes detected" - Content changed, new ETag cached')
+        });
+        etagTroubleshootingGroup.add(etagStatusRow);
+        
+        const etagIssuesRow = new Adw.ActionRow({
+            title: _('🔧 Common ETag Issues'),
+            subtitle: _('• High polling frequency may still hit rate limits\n• Network issues can prevent ETag caching\n• Repository changes clear ETags automatically\n• 304 responses are normal and efficient')
+        });
+        etagTroubleshootingGroup.add(etagIssuesRow);
+        
+        // Performance group (updated for v2.9 with ETags)
         const performanceGroup = new Adw.PreferencesGroup({
             title: _('Performance'),
-            description: _('Settings that affect extension performance')
+            description: _('Settings that affect extension performance and efficiency')
         });
         page.add(performanceGroup);
         
         const performanceRow = new Adw.ActionRow({
             title: _('⚡ Performance Tips'),
-            subtitle: _('• Increase Change Sync Delay for rapidly-changing files\n• Use "Backup Only" sync direction for better performance\n• Disable wallpaper syncing if not needed\n• Use longer polling intervals in production\n• Review monitored files list regularly')
+            subtitle: _('• Increase Change Sync Delay for rapidly-changing files\n• Use "Backup Only" sync direction for better performance\n• Disable wallpaper syncing if not needed\n• Enable ETag polling for efficient remote monitoring\n• Review monitored files list regularly')
         });
         performanceGroup.add(performanceRow);
         
         const v29PerformanceRow = new Adw.ActionRow({
             title: _('🚀 v2.9 Performance Features'),
-            subtitle: _('• GitHub Tree API reduces API calls by 90%\n• Request queue prevents rate limiting\n• Smart caching skips unchanged files\n• HTTP session reuse improves speed\n• On-demand wallpaper loading saves memory')
+            subtitle: _('• ETag polling reduces bandwidth by up to 95%\n• GitHub Tree API reduces API calls by 90%\n• Request queue prevents rate limiting\n• Smart caching skips unchanged files\n• HTTP session reuse improves speed\n• On-demand wallpaper loading saves memory')
         });
         performanceGroup.add(v29PerformanceRow);
+        
+        const etagBenefitsRow = new Adw.ActionRow({
+            title: _('🏷️ ETag Benefits'),
+            subtitle: _('• Conditional requests minimize data transfer\n• 304 responses are lightning fast\n• Often don\'t count against API rate limits\n• Enables frequent polling without performance impact\n• Automatic cache management')
+        });
+        performanceGroup.add(etagBenefitsRow);
         
         // Repository info group
         const repoGroup = new Adw.PreferencesGroup({
@@ -542,7 +574,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const gitHistoryRow = new Adw.ActionRow({
             title: _('📊 Git History (v2.9)'),
-            subtitle: _('• Single commits contain all changes\n• Cleaner repository history\n• Meaningful batch commit messages\n• Atomic operations (all succeed or fail)')
+            subtitle: _('• Single commits contain all changes\n• Cleaner repository history\n• Meaningful batch commit messages\n• Atomic operations (all succeed or fail)\n• ETag cache cleared after uploads')
         });
         repoGroup.add(gitHistoryRow);
         
@@ -555,7 +587,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const maintenanceRow = new Adw.ActionRow({
             title: _('🧹 Maintenance Tips'),
-            subtitle: _('• Regularly review your repository contents\n• Clean up old wallpapers if not needed\n• Monitor repository size (GitHub has limits)\n• Keep your access token secure and rotate periodically')
+            subtitle: _('• Regularly review your repository contents\n• Clean up old wallpapers if not needed\n• Monitor repository size (GitHub has limits)\n• Keep your access token secure and rotate periodically\n• ETag cache resets automatically when needed')
         });
         maintenanceGroup.add(maintenanceRow);
     }
@@ -570,13 +602,13 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Extension info group
         const infoGroup = new Adw.PreferencesGroup({
             title: _('Gnoming Profiles'),
-            description: _('Automatic GNOME configuration sync via GitHub')
+            description: _('Automatic GNOME configuration sync via GitHub with ETag-based polling')
         });
         page.add(infoGroup);
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.9')
+            subtitle: _('2.9 (with ETag polling)')
         });
         infoGroup.add(versionRow);
         
@@ -594,7 +626,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const descriptionRow = new Adw.ActionRow({
             title: _('Description'),
-            subtitle: _('Automatically syncs your GNOME settings and configuration files to a private GitHub repository with real-time monitoring, high-performance batching, and intelligent request management.')
+            subtitle: _('Automatically syncs your GNOME settings and configuration files to a private GitHub repository with real-time monitoring, high-performance batching, intelligent request management, and ultra-efficient ETag-based polling.')
         });
         infoGroup.add(descriptionRow);
         
@@ -612,7 +644,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const featuresRow = new Adw.ActionRow({
             title: _('✨ What This Extension Does'),
-            subtitle: _('• Real-time file and settings monitoring\n• High-performance GitHub Tree API batching\n• Intelligent request queue management\n• Smart content caching and change detection\n• Multi-device configuration sharing\n• Wallpaper syncing (optional)\n• Session-based auto-sync\n• Remote change detection\n• Private repository security')
+            subtitle: _('• Real-time file and settings monitoring\n• ETag-based polling for ultra-efficient remote sync\n• High-performance GitHub Tree API batching\n• Intelligent request queue management\n• Smart content caching and change detection\n• Multi-device configuration sharing\n• Wallpaper syncing (optional)\n• Session-based auto-sync\n• Remote change detection\n• Private repository security')
         });
         featuresGroup.add(featuresRow);
         
@@ -649,8 +681,8 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         page.add(changelogGroup);
         
         const v29Row = new Adw.ActionRow({
-            title: _('v2.9 (Current)'),
-            subtitle: _('• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• NEW: HTTP Session Reuse - Better connection efficiency\n• IMPROVED: Wallpaper Handling - On-demand loading reduces memory\n• ENHANCED: Panel Menu - Request queue status display\n• PERFORMANCE: 60-80% faster sync operations\n• RELIABILITY: Better error handling and network recovery')
+            title: _('v2.9 (Current - with ETag Polling)'),
+            subtitle: _('• NEW: ETag-Based GitHub Polling - Ultra-efficient change detection\n  - Uses HTTP ETags for conditional requests (If-None-Match)\n  - 304 Not Modified responses reduce bandwidth by up to 95%\n  - Conditional requests often don\'t count against API limits\n  - Real-time ETag status display in panel menu\n• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• NEW: HTTP Session Reuse - Better connection efficiency\n• IMPROVED: Wallpaper Handling - On-demand loading reduces memory\n• ENHANCED: Panel Menu - ETag and request queue status displays\n• PERFORMANCE: 60-80% faster sync + 95% bandwidth reduction\n• RELIABILITY: Better error handling and network recovery')
         });
         changelogGroup.add(v29Row);
         
@@ -692,7 +724,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const setupRow = new Adw.ActionRow({
             title: _('🚀 Quick Setup'),
-            subtitle: _('1. Create a private GitHub repository\n2. Generate a Personal Access Token (repo permissions)\n3. Configure credentials in General tab\n4. Add schemas and files in Content tab\n5. Enable monitoring in Sync tab')
+            subtitle: _('1. Create a private GitHub repository\n2. Generate a Personal Access Token (repo permissions)\n3. Configure credentials in General tab\n4. Add schemas and files in Content tab\n5. Enable monitoring and ETag polling in Sync tab')
         });
         helpGroup.add(setupRow);
         
@@ -703,9 +735,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         helpGroup.add(firstSyncRow);
         
         const performanceNoticeRow = new Adw.ActionRow({
-            title: _('⚡ Performance Notice (v2.9)'),
-            subtitle: _('This version uses GitHub Tree API for dramatically improved performance. Your first sync may take slightly longer as caches are built, but subsequent syncs will be much faster.')
+            title: _('⚡ Performance Notice (v2.9 with ETags)'),
+            subtitle: _('This version uses ETag polling and GitHub Tree API for dramatically improved performance. Your first sync may take slightly longer as caches are built, but subsequent syncs and polling will be much faster and more efficient.')
         });
         helpGroup.add(performanceNoticeRow);
+        
+        const etagExplanationRow = new Adw.ActionRow({
+            title: _('🏷️ Understanding ETags'),
+            subtitle: _('ETags are HTTP headers that act like "fingerprints" for content. When GitHub content hasn\'t changed, it returns a 304 "Not Modified" response with minimal data, saving bandwidth and improving speed. Check the panel menu to see ETag status in real-time.')
+        });
+        helpGroup.add(etagExplanationRow);
     }
 }

@@ -136,6 +136,11 @@ class ConfigSyncIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(queueItem);
         this._queueItem = queueItem;
         
+        let etagItem = new PopupMenu.PopupMenuItem(_('ETag polling: Not cached'));
+        etagItem.reactive = false;
+        this.menu.addMenuItem(etagItem);
+        this._etagItem = etagItem;
+        
         let remoteChangesItem = new PopupMenu.PopupMenuItem(_('Pull Remote Changes'));
         remoteChangesItem.visible = false;
         this.menu.addMenuItem(remoteChangesItem);
@@ -221,7 +226,7 @@ class ConfigSyncIndicator extends PanelMenu.Button {
     
     updatePollingStatus(isPolling, intervalMinutes) {
         if (isPolling) {
-            this._pollingItem.label.text = _(`GitHub polling: Every ${intervalMinutes} min`);
+            this._pollingItem.label.text = _(`GitHub polling: Every ${intervalMinutes} min (ETag)`);
             this._icon.add_style_class_name('monitoring-active');
         } else {
             this._pollingItem.label.text = _('GitHub polling: Off');
@@ -231,6 +236,20 @@ class ConfigSyncIndicator extends PanelMenu.Button {
     
     updateQueueStatus(pending, active) {
         this._queueItem.label.text = _(`Request queue: ${pending} pending, ${active} active`);
+    }
+    
+    updateETagStatus(hasETag, wasModified) {
+        if (hasETag) {
+            if (wasModified === null) {
+                this._etagItem.label.text = _('ETag polling: Cached');
+            } else if (wasModified) {
+                this._etagItem.label.text = _('ETag polling: Changes detected');
+            } else {
+                this._etagItem.label.text = _('ETag polling: No changes (304)');
+            }
+        } else {
+            this._etagItem.label.text = _('ETag polling: Not cached');
+        }
     }
     
     showRemoteChanges(commit) {
@@ -281,6 +300,10 @@ export default class ConfigSyncExtension extends Extension {
         this._contentHashCache = new Map(); // Cache content hashes
         this._httpSession = null; // Reuse HTTP session
         
+        // NEW: ETag caching for improved polling efficiency
+        this._etagCache = new Map(); // Store ETags for different endpoints
+        this._lastPollResult = null; // Track last polling result
+        
         // Change monitoring
         this._fileMonitors = new Map();
         this._settingsMonitors = new Map();
@@ -307,7 +330,7 @@ export default class ConfigSyncExtension extends Extension {
         this._httpSession = new Soup.Session();
         this._httpSession.timeout = 30;
         this._httpSession.max_conns = 10;
-        this._httpSession.user_agent = 'GNOME-Config-Sync/2.9.0';
+        this._httpSession.user_agent = 'GNOME-Config-Sync/2.9.0-ETag';
         
         Main.panel.addToStatusArea(this.uuid, this._indicator);
         
@@ -357,7 +380,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.9.0) with GitHub Tree API batching');
+        log('Gnoming Profiles extension enabled (v2.9.0) with GitHub Tree API batching and ETag polling');
     }
     
     disable() {
@@ -410,6 +433,7 @@ export default class ConfigSyncExtension extends Extension {
         // Clear caches
         this._shaCache.clear();
         this._contentHashCache.clear();
+        this._etagCache.clear();
         
         // Clear sync lock and queue
         this._isSyncing = false;
@@ -426,6 +450,10 @@ export default class ConfigSyncExtension extends Extension {
                     this._requestQueue.pendingCount,
                     this._requestQueue.activeCount
                 );
+                
+                // Update ETag status
+                const commitsETag = this._etagCache.get('commits');
+                this._indicator.updateETagStatus(!!commitsETag, this._lastPollResult);
             }
             return GLib.SOURCE_CONTINUE;
         });
@@ -804,22 +832,14 @@ export default class ConfigSyncExtension extends Extension {
         this._isPolling = true;
         const intervalMs = intervalMinutes * 60 * 1000; // Convert to milliseconds
         
-        log(`GitHub polling: Starting for ${username}/${repo} every ${intervalMinutes} minutes`);
+        log(`GitHub ETag polling: Starting for ${username}/${repo} every ${intervalMinutes} minutes`);
         
-        // Get initial commit hash (but don't require it to succeed)
-        this._updateLastKnownCommit().then(() => {
-            log('GitHub polling: Initial commit hash retrieved');
-        }).catch(error => {
-            log(`GitHub polling: Failed to get initial commit hash: ${error.message}`);
-            // Continue anyway - we'll detect it on first poll
-        }).finally(() => {
-            // Start polling regardless
-            this._scheduleNextPoll(intervalMs);
-            if (this._indicator) {
-                this._indicator.updatePollingStatus(true, intervalMinutes);
-            }
-            log(`GitHub polling: Successfully enabled`);
-        });
+        // Start polling immediately
+        this._scheduleNextPoll(intervalMs);
+        if (this._indicator) {
+            this._indicator.updatePollingStatus(true, intervalMinutes);
+        }
+        log(`GitHub ETag polling: Successfully enabled`);
     }
     
     _scheduleNextPoll(intervalMs) {
@@ -828,7 +848,7 @@ export default class ConfigSyncExtension extends Extension {
             return;
         }
         
-        log(`GitHub polling: Scheduling next poll in ${intervalMs / 1000} seconds`);
+        log(`GitHub ETag polling: Scheduling next poll in ${intervalMs / 1000} seconds`);
         
         this._pollingTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, intervalMs, () => {
             if (!this._isPolling) {
@@ -836,63 +856,91 @@ export default class ConfigSyncExtension extends Extension {
                 return GLib.SOURCE_REMOVE;
             }
             
-            log('GitHub polling: Timer fired, starting poll');
+            log('GitHub ETag polling: Timer fired, starting poll');
             this._pollGitHubForChanges().then(() => {
-                log('GitHub polling: Poll completed, scheduling next');
+                log('GitHub ETag polling: Poll completed, scheduling next');
                 // Schedule next poll
                 this._scheduleNextPoll(intervalMs);
             }).catch(error => {
-                log(`GitHub polling error: ${error.message}`);
+                log(`GitHub ETag polling error: ${error.message}`);
                 // Still schedule next poll to retry
-                log('GitHub polling: Scheduling retry poll');
+                log('GitHub ETag polling: Scheduling retry poll');
                 this._scheduleNextPoll(intervalMs);
             });
             
             return GLib.SOURCE_REMOVE;
         });
         
-        log(`GitHub polling: Timer scheduled with ID ${this._pollingTimeout}`);
+        log(`GitHub ETag polling: Timer scheduled with ID ${this._pollingTimeout}`);
     }
     
+    /**
+     * NEW: ETag-based polling for improved efficiency
+     */
     async _pollGitHubForChanges() {
         const token = this._settings.get_string('github-token');
         const repo = this._settings.get_string('github-repo');
         const username = this._settings.get_string('github-username');
         
         if (!token || !repo || !username) {
-            log('GitHub polling: Missing credentials');
+            log('GitHub ETag polling: Missing credentials');
             return;
         }
         
         try {
-            log(`GitHub polling: Checking ${username}/${repo} for changes...`);
+            log(`GitHub ETag polling: Checking ${username}/${repo} for changes...`);
             
-            // Get latest commit info using request queue
+            const commitsUrl = `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`;
+            const cachedETag = this._etagCache.get('commits');
+            
+            if (cachedETag) {
+                log(`GitHub ETag polling: Using cached ETag: ${cachedETag}`);
+            } else {
+                log('GitHub ETag polling: No cached ETag, performing initial request');
+            }
+            
+            // Make conditional request with ETag
             const response = await this._requestQueue.add(() => 
                 this._makeGitHubRequest(
-                    `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`,
+                    commitsUrl,
                     'GET',
-                    token
+                    token,
+                    null,
+                    cachedETag // Pass ETag for conditional request
                 )
             );
             
+            // Handle 304 Not Modified response
+            if (response.status === 304) {
+                log('GitHub ETag polling: No changes detected (304 Not Modified)');
+                this._lastPollResult = false; // No changes
+                return;
+            }
+            
             if (!response.ok) {
                 if (response.status === 404) {
-                    log('GitHub polling: Repository not found or empty');
+                    log('GitHub ETag polling: Repository not found or empty');
                     return;
                 } else if (response.status === 401) {
-                    log('GitHub polling: Authentication failed - check your token');
+                    log('GitHub ETag polling: Authentication failed - check your token');
                     return;
                 } else if (response.status === 403) {
-                    log('GitHub polling: Access forbidden - check repository permissions');
+                    log('GitHub ETag polling: Access forbidden - check repository permissions');
                     return;
                 }
                 throw new Error(`GitHub API error: ${response.status} - ${response.data}`);
             }
             
+            // Store new ETag for future requests
+            if (response.etag) {
+                this._etagCache.set('commits', response.etag);
+                log(`GitHub ETag polling: Cached new ETag: ${response.etag}`);
+            }
+            
             const commits = JSON.parse(response.data);
             if (commits.length === 0) {
-                log('GitHub polling: No commits found in repository');
+                log('GitHub ETag polling: No commits found in repository');
+                this._lastPollResult = false;
                 return;
             }
             
@@ -900,32 +948,35 @@ export default class ConfigSyncExtension extends Extension {
             const latestCommitSha = latestCommit.sha;
             const commitMessage = latestCommit.commit.message;
             
-            log(`GitHub polling: Latest commit ${latestCommitSha.substring(0, 7)}: ${commitMessage}`);
-            log(`GitHub polling: Last known commit was ${this._lastKnownCommit ? this._lastKnownCommit.substring(0, 7) : 'none'}`);
+            log(`GitHub ETag polling: Latest commit ${latestCommitSha.substring(0, 7)}: ${commitMessage}`);
+            log(`GitHub ETag polling: Last known commit was ${this._lastKnownCommit ? this._lastKnownCommit.substring(0, 7) : 'none'}`);
             
             // Check if this is a new commit (or if we don't have a last known commit yet)
             if (!this._lastKnownCommit) {
-                log('GitHub polling: No previous commit known, storing current as baseline');
+                log('GitHub ETag polling: No previous commit known, storing current as baseline');
                 this._lastKnownCommit = latestCommitSha;
+                this._lastPollResult = false; // No changes to process
                 return;
             }
             
             if (this._lastKnownCommit !== latestCommitSha) {
-                log(`GitHub polling: New commit detected! ${latestCommitSha.substring(0, 7)}`);
+                log(`GitHub ETag polling: New commit detected! ${latestCommitSha.substring(0, 7)}`);
+                this._lastPollResult = true; // Changes detected
                 
-                // For initial testing, let's sync on ANY new commit
-                // Later we can add back the file filtering if needed
-                log('GitHub polling: Triggering remote changes detection');
+                // Trigger remote changes detection
+                log('GitHub ETag polling: Triggering remote changes detection');
                 this._onRemoteChangesDetected(latestCommit);
                 
                 // Update our known commit
                 this._lastKnownCommit = latestCommitSha;
             } else {
-                log('GitHub polling: No new commits detected');
+                log('GitHub ETag polling: No new commits detected');
+                this._lastPollResult = false; // No changes
             }
             
         } catch (error) {
-            log(`GitHub polling error: ${error.message}`);
+            log(`GitHub ETag polling error: ${error.message}`);
+            this._lastPollResult = null; // Error state
             // Don't throw the error to prevent polling from stopping
         }
     }
@@ -936,7 +987,7 @@ export default class ConfigSyncExtension extends Extension {
         const shortSha = commit.sha.substring(0, 7);
         const commitMsg = commit.commit.message.split('\n')[0]; // First line only
         
-        log(`GitHub polling: Remote changes detected in commit ${shortSha}: ${commitMsg}`);
+        log(`GitHub ETag polling: Remote changes detected in commit ${shortSha}: ${commitMsg}`);
         
         // Safely show remote changes
         if (this._indicator) {
@@ -947,13 +998,13 @@ export default class ConfigSyncExtension extends Extension {
         let autoSyncRemote = true; // Default to true for better UX
         try {
             autoSyncRemote = this._settings.get_boolean('auto-sync-remote-changes');
-            log(`GitHub polling: Auto-sync remote changes setting: ${autoSyncRemote}`);
+            log(`GitHub ETag polling: Auto-sync remote changes setting: ${autoSyncRemote}`);
         } catch (e) {
             log('auto-sync-remote-changes setting not found, defaulting to true');
         }
         
         if (autoSyncRemote) {
-            log('GitHub polling: Starting auto-sync of remote changes');
+            log('GitHub ETag polling: Starting auto-sync of remote changes');
             
             this._performSyncOperation('remote changes', async () => {
                 await this._syncFromGitHub();
@@ -964,7 +1015,7 @@ export default class ConfigSyncExtension extends Extension {
                 return 'Remote sync complete';
             }, true); // Allow queueing for remote sync
         } else {
-            log('GitHub polling: Auto-sync disabled, showing manual pull option');
+            log('GitHub ETag polling: Auto-sync disabled, showing manual pull option');
             if (this._indicator) {
                 this._indicator.updateStatus(_('Remote changes available - check menu to pull'));
             }
@@ -977,12 +1028,12 @@ export default class ConfigSyncExtension extends Extension {
         const username = this._settings.get_string('github-username');
         
         if (!token || !repo || !username) {
-            log('GitHub polling: Cannot get initial commit - credentials missing');
+            log('GitHub ETag polling: Cannot get initial commit - credentials missing');
             return;
         }
         
         try {
-            log(`GitHub polling: Getting initial commit hash for ${username}/${repo}`);
+            log(`GitHub ETag polling: Getting initial commit hash for ${username}/${repo}`);
             const response = await this._requestQueue.add(() =>
                 this._makeGitHubRequest(
                     `https://api.github.com/repos/${username}/${repo}/commits?per_page=1`,
@@ -992,21 +1043,27 @@ export default class ConfigSyncExtension extends Extension {
             );
             
             if (response.ok) {
+                // Store initial ETag
+                if (response.etag) {
+                    this._etagCache.set('commits', response.etag);
+                    log(`GitHub ETag polling: Stored initial ETag: ${response.etag}`);
+                }
+                
                 const commits = JSON.parse(response.data);
                 if (commits.length > 0) {
                     this._lastKnownCommit = commits[0].sha;
                     const commitMsg = commits[0].commit.message.split('\n')[0];
-                    log(`GitHub polling: Initial commit hash set to ${this._lastKnownCommit.substring(0, 7)}: ${commitMsg}`);
+                    log(`GitHub ETag polling: Initial commit hash set to ${this._lastKnownCommit.substring(0, 7)}: ${commitMsg}`);
                 } else {
-                    log('GitHub polling: Repository has no commits');
+                    log('GitHub ETag polling: Repository has no commits');
                     this._lastKnownCommit = null;
                 }
             } else {
-                log(`GitHub polling: Failed to get initial commit (${response.status}): ${response.data}`);
+                log(`GitHub ETag polling: Failed to get initial commit (${response.status}): ${response.data}`);
                 throw new Error(`GitHub API error: ${response.status}`);
             }
         } catch (error) {
-            log(`GitHub polling: Failed to get initial commit hash: ${error.message}`);
+            log(`GitHub ETag polling: Failed to get initial commit hash: ${error.message}`);
             this._lastKnownCommit = null; // Reset so we'll detect the first commit
             throw error;
         }
@@ -1021,13 +1078,14 @@ export default class ConfigSyncExtension extends Extension {
         this._isPolling = false;
         this._lastKnownCommit = null;
         this._remoteChangesDetected = false;
+        this._lastPollResult = null;
         
         if (this._indicator) {
             this._indicator.updatePollingStatus(false, 0);
             this._indicator.clearRemoteChanges();
         }
         
-        log('GitHub polling stopped');
+        log('GitHub ETag polling stopped');
     }
     
     _setupSessionHandlers() {
@@ -1132,7 +1190,7 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * NEW: GitHub Tree API based sync - batches all file changes into a single commit
+     * GitHub Tree API based sync - batches all file changes into a single commit
      */
     async _syncToGitHub() {
         const token = this._settings.get_string('github-token');
@@ -1446,6 +1504,10 @@ export default class ConfigSyncExtension extends Extension {
             if (!refResponse.ok) {
                 throw new Error(`Failed to update branch: ${refResponse.status} - ${refResponse.data}`);
             }
+            
+            // Clear commits ETag cache since we just made changes
+            this._etagCache.delete('commits');
+            log('Cleared commits ETag cache after upload');
             
             log(`Successfully uploaded batch of ${treeEntries.length} files in single commit ${newCommit.sha.substring(0, 7)}`);
             
@@ -1911,7 +1973,10 @@ export default class ConfigSyncExtension extends Extension {
         }
     }
     
-    _makeGitHubRequest(url, method, token, data = null) {
+    /**
+     * NEW: Enhanced GitHub request method with ETag support
+     */
+    _makeGitHubRequest(url, method, token, data = null, etag = null) {
         return new Promise((resolve, reject) => {
             try {
                 const message = Soup.Message.new(method, url);
@@ -1919,6 +1984,12 @@ export default class ConfigSyncExtension extends Extension {
                 // Set headers
                 message.request_headers.append('Authorization', `token ${token}`);
                 message.request_headers.append('Accept', 'application/vnd.github.v3+json');
+                
+                // Add ETag for conditional requests
+                if (etag && method === 'GET') {
+                    message.request_headers.append('If-None-Match', etag);
+                    log(`GitHub request: Adding If-None-Match header: ${etag}`);
+                }
                 
                 if (data) {
                     const json = JSON.stringify(data);
@@ -1934,10 +2005,17 @@ export default class ConfigSyncExtension extends Extension {
                         const bytes = session.send_and_read_finish(result);
                         const data = new TextDecoder().decode(bytes.get_data());
                         
+                        // Extract ETag from response headers
+                        let responseETag = null;
+                        if (message.response_headers) {
+                            responseETag = message.response_headers.get_one('ETag');
+                        }
+                        
                         resolve({
                             ok: message.status_code >= 200 && message.status_code < 300,
                             status: message.status_code,
-                            data: data
+                            data: data,
+                            etag: responseETag
                         });
                     } catch (error) {
                         reject(error);
