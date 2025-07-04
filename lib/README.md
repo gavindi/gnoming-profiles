@@ -28,6 +28,7 @@ This directory contains the modular components of the Gnoming Profiles extension
   - ETag-based conditional requests
   - Tree API operations for batching
   - HTTP session reuse
+  - Binary file download support (for wallpapers)
   - Comprehensive API coverage
 - **Dependencies**: RequestQueue, ETagManager
 
@@ -56,7 +57,8 @@ This directory contains the modular components of the Gnoming Profiles extension
 - **Features**:
   - On-demand wallpaper loading
   - URI path updating
-  - Download and restoration
+  - Download and restoration with binary integrity
+  - Dual download method support (API vs direct download)
 - **Dependencies**: GitHubAPI
 - **Usage**: Handles wallpaper image syncing
 

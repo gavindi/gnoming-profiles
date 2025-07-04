@@ -423,6 +423,13 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
 4. Parent directories must be accessible
 5. Check request queue status for upload issues (v2.9+)
 
+### Wallpaper Sync Issues (v2.9+)
+1. **"JSON.parse: unexpected character" error**: Fixed in v2.9 - extension now properly handles both GitHub API responses and direct file downloads
+2. **Large wallpaper files**: May increase sync time (mitigated by batching)
+3. **Wallpaper not restored**: Check `~/.local/share/gnoming-profiles/wallpapers/` directory
+4. **Path issues**: Extension automatically updates GSettings URIs to point to restored files
+5. **Binary corruption**: Fixed - extension now preserves binary integrity during download
+
 ## Requirements
 
 - GNOME Shell 45+
@@ -484,6 +491,10 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - Wallpaper content loaded only when needed for upload
   - Better memory efficiency for large wallpaper files
   - Wallpapers included in batch commits for better organization
+- **FIXED: Wallpaper Download Issues**: Proper handling of binary file downloads
+  - Fixed "JSON.parse: unexpected character" error with custom wallpapers
+  - Proper binary data handling for GitHub download URLs vs API URLs
+  - Maintains file integrity during download and restoration
 - **ENHANCED: Panel Menu**: Added ETag and request queue status displays
   - Real-time visibility into ETag polling efficiency
   - Real-time visibility into pending and active GitHub requests
