@@ -307,7 +307,7 @@ export default class ConfigSyncExtension extends Extension {
         this._httpSession = new Soup.Session();
         this._httpSession.timeout = 30;
         this._httpSession.max_conns = 10;
-        this._httpSession.user_agent = 'GNOME-Config-Sync/2.9.1';
+        this._httpSession.user_agent = 'GNOME-Config-Sync/2.9.0';
         
         Main.panel.addToStatusArea(this.uuid, this._indicator);
         
@@ -357,7 +357,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
         
-        log('Gnoming Profiles extension enabled (v2.9.1) with GitHub Tree API batching and wallpaper fix');
+        log('Gnoming Profiles extension enabled (v2.9.0) with GitHub Tree API batching');
     }
     
     disable() {
@@ -1624,25 +1624,19 @@ export default class ConfigSyncExtension extends Extension {
                     return;
                 }
                 
-                // Generate a consistent filename that includes schema and key info for easier restoration
-                const originalFileName = file.get_basename();
-                const extension = originalFileName.split('.').pop();
-                const schemaShort = schema.split('.').pop(); // e.g. "background" or "screensaver"
-                const safeFileName = `${schemaShort}-${key}.${extension}`;
-                
                 // Store file info instead of content (load on-demand)
+                const fileName = file.get_basename();
                 const wallpaperKey = `${schema}-${key}`;
                 
                 this._wallpaperData.set(wallpaperKey, {
                     filePath: filePath,
-                    fileName: safeFileName, // Use consistent filename
-                    originalFileName: originalFileName, // Keep original for reference
+                    fileName: fileName,
                     schema: schema,
                     key: key
                     // Don't store content here - load when needed
                 });
                 
-                log(`Tracked wallpaper for upload: ${originalFileName} -> ${safeFileName} for ${wallpaperKey}`);
+                log(`Tracked wallpaper for upload: ${fileName} for ${wallpaperKey}`);
             }
         } catch (e) {
             log(`Failed to track wallpaper ${schema}.${key}: ${e.message}`);
@@ -1696,12 +1690,6 @@ export default class ConfigSyncExtension extends Extension {
                                 const variant = GLib.Variant.parse(null, updatedValue, null, null);
                                 settings.set_value(key, variant);
                                 restoredKeys++;
-                                
-                                // Force wallpaper refresh for better reliability
-                                if (schema === 'org.gnome.desktop.background' || schema === 'org.gnome.desktop.screensaver') {
-                                    log(`Forcing wallpaper refresh for ${schema}.${key}`);
-                                    this._forceWallpaperRefresh(schema, key, settings);
-                                }
                             } else {
                                 const variant = GLib.Variant.parse(null, value, null, null);
                                 settings.set_value(key, variant);
@@ -1731,96 +1719,22 @@ export default class ConfigSyncExtension extends Extension {
         }
     }
     
-    /**
-     * Force wallpaper refresh to ensure GNOME picks up the new wallpaper
-     */
-    _forceWallpaperRefresh(schema, key, settings) {
-        try {
-            // Get current value
-            const currentValue = settings.get_string(key);
-            log(`Current wallpaper value for ${schema}.${key}: ${currentValue}`);
-            
-            // For GNOME to properly refresh wallpapers, sometimes we need to:
-            // 1. Briefly set to a different value (like 'none')
-            // 2. Then set back to the correct value
-            // This forces GNOME to reload the wallpaper
-            
-            if (currentValue && currentValue !== 'none') {
-                // Temporarily set to 'none' to force refresh
-                settings.set_string(key, 'none');
-                
-                // Set back to correct value after a short delay
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
-                    try {
-                        settings.set_string(key, currentValue);
-                        log(`Wallpaper refresh completed for ${schema}.${key}`);
-                    } catch (e) {
-                        log(`Error during wallpaper refresh: ${e.message}`);
-                    }
-                    return GLib.SOURCE_REMOVE;
-                });
-            }
-        } catch (e) {
-            log(`Failed to refresh wallpaper ${schema}.${key}: ${e.message}`);
-        }
-    }
-    
     _updateWallpaperUri(originalValue, schema, key) {
         // Parse the original value to extract the URI
         const match = originalValue.match(/'([^']*)'/);
         if (!match) {
-            log(`Could not parse URI from wallpaper value: ${originalValue}`);
             return originalValue;
         }
         
         const originalUri = match[1];
         const wallpaperKey = `${schema}-${key}`;
-        
-        log(`Looking for wallpaper mapping for ${wallpaperKey}, original URI: ${originalUri}`);
-        
-        // First try exact schema-key match
-        let wallpaperData = this._wallpaperData.get(wallpaperKey);
-        
-        if (!wallpaperData) {
-            // If no exact match, try to find by filename
-            // Extract filename from original URI
-            let filename = null;
-            if (originalUri.startsWith('file://')) {
-                const filePath = originalUri.replace('file://', '');
-                filename = GLib.path_get_basename(filePath);
-                log(`Extracted filename from URI: ${filename}`);
-                
-                // Try to find by filename
-                wallpaperData = this._wallpaperData.get(filename);
-                
-                if (!wallpaperData) {
-                    // Search through all wallpaper data for matching filename
-                    for (const [key, data] of this._wallpaperData) {
-                        if (data.fileName === filename) {
-                            log(`Found wallpaper data by filename match: ${filename}`);
-                            wallpaperData = data;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        const wallpaperData = this._wallpaperData.get(wallpaperKey);
         
         if (wallpaperData && wallpaperData.newPath) {
-            // Verify the file exists before updating URI
-            const file = Gio.File.new_for_path(wallpaperData.newPath);
-            if (!file.query_exists(null)) {
-                log(`Wallpaper file does not exist: ${wallpaperData.newPath}`);
-                return originalValue;
-            }
-            
             const newUri = `file://${wallpaperData.newPath}`;
             const updatedValue = originalValue.replace(originalUri, newUri);
             log(`Updated wallpaper URI for ${wallpaperKey}: ${originalUri} -> ${newUri}`);
             return updatedValue;
-        } else {
-            log(`No wallpaper mapping found for ${wallpaperKey}, keeping original URI: ${originalUri}`);
-            log(`Available wallpaper mappings: ${Array.from(this._wallpaperData.keys()).join(', ')}`);
         }
         
         return originalValue;
@@ -1944,9 +1858,6 @@ export default class ConfigSyncExtension extends Extension {
                 }
             }
             
-            // Clear existing wallpaper mappings to rebuild them
-            this._wallpaperData.clear();
-            
             // Download each wallpaper file using request queue
             for (const fileInfo of wallpaperFiles) {
                 if (fileInfo.type !== 'file') continue;
@@ -1980,32 +1891,11 @@ export default class ConfigSyncExtension extends Extension {
                         
                         log(`Restored wallpaper: ${fileInfo.name} to ${newPath}`);
                         
-                        // Store mapping for all possible wallpaper schema-key combinations
-                        // This ensures we can find the wallpaper regardless of which schema/key it came from
-                        const wallpaperSchemas = [
-                            { schema: 'org.gnome.desktop.background', keys: ['picture-uri', 'picture-uri-dark'] },
-                            { schema: 'org.gnome.desktop.screensaver', keys: ['picture-uri'] }
-                        ];
-                        
-                        for (const schemaInfo of wallpaperSchemas) {
-                            for (const key of schemaInfo.keys) {
-                                const wallpaperKey = `${schemaInfo.schema}-${key}`;
-                                this._wallpaperData.set(wallpaperKey, {
-                                    newPath: newPath,
-                                    fileName: fileInfo.name,
-                                    schema: schemaInfo.schema,
-                                    key: key
-                                });
-                            }
-                        }
-                        
-                        // Also store by filename for backward compatibility
+                        // Store the mapping for URI updates
                         this._wallpaperData.set(fileInfo.name, {
                             newPath: newPath,
                             fileName: fileInfo.name
                         });
-                        
-                        log(`Mapped wallpaper ${fileInfo.name} to ${newPath} for all schema combinations`);
                         
                     } else {
                         log(`Failed to download wallpaper ${fileInfo.name}: ${fileResponse.status}`);

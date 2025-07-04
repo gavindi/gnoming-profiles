@@ -362,21 +362,7 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.9.1 (Current)
-- **CRITICAL FIX: Wallpaper restoration bug resolved**
-  - Fixed wallpaper URI mapping during sync restoration
-  - Wallpapers now display correctly instead of showing black backgrounds
-  - Enhanced wallpaper filename consistency for reliable restoration
-  - Improved wallpaper refresh mechanism to force GNOME reload
-  - Better wallpaper file existence checking and error handling
-  - Enhanced logging for wallpaper debugging and troubleshooting
-- **IMPROVED: Wallpaper key mapping system**
-  - Multiple mapping strategies for robust wallpaper restoration
-  - Fallback logic when exact schema-key matches aren't found
-  - Consistent filename generation during upload process
-- **For users experiencing wallpaper issues**: Update to v2.9.1 and perform one "Sync Now" to rebuild mappings
-
-### v2.9
+### v2.9 (Current)
 - **NEW: GitHub Tree API Batching**: All file changes now uploaded in single commits
   - Dramatically reduced GitHub API calls (up to 90% fewer requests)
   - Atomic operations ensure all changes succeed or fail together

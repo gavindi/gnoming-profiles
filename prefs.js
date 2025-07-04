@@ -498,28 +498,9 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const troubleshootingRow = new Adw.ActionRow({
             title: _('🚨 Troubleshooting Steps'),
-            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for schema/file counts\n4. Check request queue status (v2.9+)\n5. Check logs for error messages\n6. Try disabling/re-enabling extension\n7. For wallpaper issues: Check ~/.local/share/gnoming-profiles/wallpapers/')
+            subtitle: _('1. Check GitHub credentials in General tab\n2. Verify repository exists and is private\n3. Check panel menu for schema/file counts\n4. Check request queue status (v2.9+)\n5. Check logs for error messages\n6. Try disabling/re-enabling extension')
         });
         debugGroup.add(troubleshootingRow);
-        
-        // Wallpaper troubleshooting group (new in v2.9.1)
-        const wallpaperGroup = new Adw.PreferencesGroup({
-            title: _('Wallpaper Troubleshooting'),
-            description: _('Specific help for wallpaper syncing issues (v2.9.1 fixes)')
-        });
-        page.add(wallpaperGroup);
-        
-        const wallpaperIssuesRow = new Adw.ActionRow({
-            title: _('🖼️ Wallpaper Shows Black Background'),
-            subtitle: _('• Update to v2.9.1 which fixes wallpaper URI mapping\n• Perform "Sync Now" to rebuild wallpaper mappings\n• Check ~/.local/share/gnoming-profiles/wallpapers/ exists\n• Verify wallpaper files are present in the directory\n• Try disabling/re-enabling wallpaper sync in Content tab')
-        });
-        wallpaperGroup.add(wallpaperIssuesRow);
-        
-        const wallpaperLogsRow = new Adw.ActionRow({
-            title: _('🔍 Wallpaper Debug Logging'),
-            subtitle: _('Look for these log messages:\n• "Tracked wallpaper for upload: [filename]"\n• "Updated wallpaper URI for [schema]: [old] -> [new]"\n• "Wallpaper refresh completed for [schema]"\n• If missing, wallpaper mapping may have failed')
-        });
-        wallpaperGroup.add(wallpaperLogsRow);
         
         // Performance group (updated for v2.9)
         const performanceGroup = new Adw.PreferencesGroup({
@@ -595,7 +576,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.9.1')
+            subtitle: _('2.9')
         });
         infoGroup.add(versionRow);
         
@@ -667,14 +648,8 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
-        const v291Row = new Adw.ActionRow({
-            title: _('v2.9.1 (Current)'),
-            subtitle: _('• FIXED: Wallpaper restoration now works correctly\n• FIXED: Wallpaper URI mapping during sync restoration\n• IMPROVED: Better wallpaper filename consistency\n• IMPROVED: Enhanced wallpaper refresh mechanism\n• IMPROVED: More robust wallpaper file existence checking\n• Enhanced logging for wallpaper debugging')
-        });
-        changelogGroup.add(v291Row);
-        
         const v29Row = new Adw.ActionRow({
-            title: _('v2.9'),
+            title: _('v2.9 (Current)'),
             subtitle: _('• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• NEW: HTTP Session Reuse - Better connection efficiency\n• IMPROVED: Wallpaper Handling - On-demand loading reduces memory\n• ENHANCED: Panel Menu - Request queue status display\n• PERFORMANCE: 60-80% faster sync operations\n• RELIABILITY: Better error handling and network recovery')
         });
         changelogGroup.add(v29Row);
