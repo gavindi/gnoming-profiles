@@ -1,6 +1,6 @@
 # Gnoming Profiles Extension
 
-A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, and intelligent ETag-based polling.
+A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, and a modular architecture for enhanced maintainability.
 
 ## Features
 
@@ -10,6 +10,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **High-Performance Batching**: Upload multiple files in single commits using GitHub Tree API (v2.9+)
 - **Request Queue Management**: Intelligent concurrency limits and queue management (v2.9+)
 - **Smart Caching**: SHA-based caching to avoid unnecessary uploads (v2.9+)
+- **Modular Architecture**: Clean separation of concerns for better maintainability (v2.9+)
 - **GSettings Support**: Monitor and sync any GSettings schema in real-time
 - **Multitasking & Workspaces**: Full sync of GNOME workspace and window management settings
 - **Ubuntu Desktop Support**: Automatic sync of Ubuntu-specific desktop extensions and settings
@@ -29,6 +30,32 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
    ```bash
    gnome-extensions enable gnoming-profiles@gavindi.github.com
    ```
+
+## Modular Architecture (v2.9+)
+
+The extension features a completely modular architecture with clean separation of concerns:
+
+### Core Modules
+- **RequestQueue**: Manages GitHub API concurrency and rate limiting
+- **ETagManager**: Handles ETag caching for bandwidth-efficient polling  
+- **GitHubAPI**: GitHub integration with ETag support and Tree API batching
+- **SyncManager**: Coordinates all backup/restore operations
+
+### Monitoring Modules
+- **FileMonitor**: Real-time file system change detection
+- **SettingsMonitor**: GSettings schema change monitoring
+- **WallpaperManager**: Wallpaper syncing and URI management
+
+### UI Module
+- **PanelIndicator**: GNOME Shell panel integration and user interface
+
+### Benefits
+- **Maintainability**: Each module has a single, well-defined responsibility
+- **Testability**: Modules can be tested independently with clear interfaces
+- **Performance**: Specialized modules optimize specific operations
+- **Extensibility**: New features can be added without affecting existing code
+
+See `lib/README.md` for detailed module documentation.
 
 ## Setup
 
@@ -329,6 +356,18 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 
 ## Troubleshooting
 
+### Debugging with Modular Logs
+The modular architecture provides detailed logging from each component:
+```bash
+# View all extension logs
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Gnoming Profiles"
+
+# Filter by specific modules
+journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHub API"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Sync Manager"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
+```
+
 ### Change Monitoring Not Working
 1. Check that "Auto-sync on Changes" is enabled in preferences
 2. Verify that your files and schemas are properly configured
@@ -411,13 +450,17 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 ## Changelog
 
 ### v2.9 (Current)
+- **NEW: Modular Architecture**: Complete code restructuring for better maintainability
+  - 9 specialized modules with clear separation of concerns
+  - Enhanced testability and debugging capabilities  
+  - Improved performance through module specialization
+  - Better error isolation and resource management
+  - See `lib/README.md` for detailed module documentation
 - **NEW: ETag-Based GitHub Polling**: Dramatically improved polling efficiency
   - Uses HTTP ETags for conditional requests (If-None-Match headers)
   - 304 Not Modified responses reduce bandwidth by up to 95%
   - Conditional requests often don't count against API rate limits
   - Real-time ETag status display in panel menu
-  - Smart ETag caching during extension session
-  - Automatic ETag cache invalidation after uploads
 - **NEW: GitHub Tree API Batching**: All file changes now uploaded in single commits
   - Dramatically reduced GitHub API calls (up to 90% fewer requests)
   - Atomic operations ensure all changes succeed or fail together
@@ -446,6 +489,11 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - Real-time visibility into pending and active GitHub requests
   - Better user feedback during sync operations
   - ETag status helps diagnose polling performance
+- **ARCHITECTURE**: Clean modular design improves maintainability
+  - 9 specialized modules with single responsibilities
+  - Clear dependency injection and interfaces
+  - Comprehensive error handling and logging
+  - Better separation of UI, business logic, and infrastructure
 - **PERFORMANCE**: Overall sync speed improvements of 60-80% for typical use cases
 - **EFFICIENCY**: Up to 95% reduction in bandwidth usage during polling
 - **RELIABILITY**: Better error handling and recovery for network issues

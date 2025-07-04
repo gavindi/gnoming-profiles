@@ -8,6 +8,7 @@ DIST_FILES = extension.js \
              prefs.js \
              metadata.json \
              stylesheet.css \
+             lib/ \
              schemas/
 
 install:
