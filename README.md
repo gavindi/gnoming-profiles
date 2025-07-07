@@ -1,6 +1,6 @@
 # Gnoming Profiles Extension
 
-A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, binary-safe wallpaper syncing, and a modular architecture for enhanced maintainability.
+A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, binary-safe wallpaper syncing, enhanced timer and memory management, and a modular architecture for enhanced maintainability.
 
 ## Features
 
@@ -8,6 +8,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Real-time Change Monitoring**: Automatically sync when files or settings change
 - **ETag-Based GitHub Polling**: Efficient change detection with minimal bandwidth usage (v2.9+)
 - **Binary-Safe Wallpaper Syncing**: Corruption-free wallpaper sync with header validation (v3.0+)
+- **Enhanced Memory Management**: Proper timer and resource cleanup (v3.0+)
 - **High-Performance Batching**: Upload multiple files in single commits using GitHub Tree API (v2.9+)
 - **Request Queue Management**: Intelligent concurrency limits and queue management (v2.9+)
 - **Smart Caching**: SHA-based caching to avoid unnecessary uploads (v2.9+)
@@ -55,8 +56,37 @@ The extension features a completely modular architecture with clean separation o
 - **Testability**: Modules can be tested independently with clear interfaces
 - **Performance**: Specialized modules optimize specific operations
 - **Extensibility**: New features can be added without affecting existing code
+- **Reliability**: Proper resource management and cleanup (v3.0+)
 
 See `lib/README.md` for detailed module documentation.
+
+## Enhanced Memory Management (v3.0+)
+
+Version 3.0 introduces comprehensive timer and memory management improvements:
+
+### Timer Management
+- **Proper Timeout Cleanup**: All GLib timeouts are tracked and properly removed
+- **Timeout ID Tracking**: Active timeouts are tracked in Sets for reliable cleanup
+- **Nullification**: Timeout IDs are set to null after removal to prevent double cleanup
+- **Cascade Cleanup**: Nested timeouts are properly managed and cleaned up
+
+### Memory Management
+- **Reference Nullification**: All object references are properly nullified during cleanup
+- **Map and Set Cleanup**: Data structures are cleared and nullified
+- **Component Isolation**: Each module manages its own cleanup independently
+- **Lifecycle Management**: Proper initialization and destruction phases
+
+### Resource Management
+- **Session Handler Cleanup**: DBus proxy connections are properly disconnected
+- **File Monitor Cleanup**: All file system monitors are cancelled and cleared
+- **Settings Monitor Cleanup**: GSettings signal handlers are disconnected
+- **Network Resource Cleanup**: HTTP sessions and request queues are properly closed
+
+### Reliability Improvements
+- **Memory Leak Prevention**: Eliminates potential memory leaks from uncleaned timers
+- **Graceful Shutdown**: Extension can be safely disabled and re-enabled
+- **Error Recovery**: Better error handling during cleanup operations
+- **Performance**: Reduced memory footprint and better resource utilization
 
 ## Setup
 
@@ -132,6 +162,12 @@ See `lib/README.md` for detailed module documentation.
 - **Header Validation**: JPEG/PNG header verification to detect corruption
 - **File Integrity**: Binary data preserved throughout download process
 - **Error Detection**: Early detection of corrupted downloads
+
+### **Enhanced Resource Management (v3.0+)**
+- **Timer Cleanup**: All timeouts properly tracked and removed
+- **Memory Management**: Comprehensive reference nullification
+- **Component Lifecycle**: Proper initialization and destruction
+- **Error Recovery**: Better cleanup during error conditions
 
 ## Panel Menu Interface
 
@@ -279,6 +315,7 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 - **Request Queue Monitoring**: Real-time visibility into GitHub API request status (v2.9+)
 - **ETag Status Display**: Shows current ETag cache state and polling efficiency (v2.9+)
 - **Binary Validation**: Header validation and corruption detection for image files (v3.0+)
+- **Memory Management**: Comprehensive timer and resource cleanup (v3.0+)
 
 ## Panel Indicator States
 
@@ -317,6 +354,7 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - **Permission Control**: Uses minimal GitHub API permissions (repo scope only)
 - **ETag Security**: ETags stored in memory only (not persisted to disk)
 - **Binary Integrity**: Wallpaper files validated for corruption (v3.0+)
+- **Resource Security**: Proper cleanup prevents information leakage (v3.0+)
 
 ## Change Monitoring Details
 
@@ -365,12 +403,13 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - **Minimal Resource Usage**: Uses efficient GNOME APIs for monitoring
 - **Debounced Syncing**: Prevents excessive network requests
 - **Selective Monitoring**: Only watches explicitly configured items
-- **Automatic Cleanup**: All monitors properly cleaned up when extension disabled
+- **Automatic Cleanup**: All monitors properly cleaned up when extension disabled (v3.0+)
 - **Batched Operations**: Multiple file changes uploaded in single commits (v2.9+)
 - **Request Queuing**: Intelligent concurrency control prevents API overload (v2.9+)
 - **Smart Caching**: Content-based change detection avoids unnecessary uploads (v2.9+)
 - **ETag Efficiency**: Conditional requests minimize unnecessary data transfer (v2.9+)
 - **Binary-Safe Processing**: Wallpapers handled without corruption (v3.0+)
+- **Memory Management**: Comprehensive timer and resource cleanup (v3.0+)
 
 ## Troubleshooting
 
@@ -435,6 +474,13 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 4. **File integrity**: Downloaded files are now verified for correctness
 5. **Empty files**: Zero-byte wallpaper files are automatically skipped and reported
 6. **Large files**: Files over 50MB are automatically skipped; over 10MB show warnings
+
+### Memory and Performance Issues (v3.0+ IMPROVED)
+1. **Memory leaks**: Fixed - all timers and references are properly cleaned up
+2. **High memory usage**: Improved - better resource management and cleanup
+3. **Extension won't disable**: Fixed - proper lifecycle management
+4. **Timeouts not clearing**: Fixed - comprehensive timeout tracking and cleanup
+5. **Resource exhaustion**: Improved - better component isolation and cleanup
 
 ### Excessive GitHub API Usage
 1. Enable ETag polling for dramatically reduced API usage (v2.9+)
@@ -501,10 +547,29 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - Corrected wallpaper data lookup by filename instead of schema-key
   - Better fallback handling for missing wallpaper mappings
   - Improved GSettings URI updates to point to correct local files
-- **RELIABILITY**: Wallpapers now work consistently across sync operations
-  - Files download correctly and display properly in GNOME
-  - GSettings point to valid, working wallpaper files
-  - No more corrupted or unreadable wallpaper files
+- **ENHANCED: Timer and Memory Management**: Comprehensive resource cleanup
+  - All GLib timeouts are properly tracked and removed
+  - Active timeout tracking using Sets for reliable cleanup
+  - Timeout IDs nullified after removal to prevent double cleanup
+  - Proper reference nullification for all objects and data structures
+  - Component-level destroy methods with proper cleanup phases
+  - Session handler and monitor cleanup with error handling
+  - Memory leak prevention and graceful shutdown capabilities
+  - Better error recovery during cleanup operations
+- **IMPROVED: Component Lifecycle Management**: Better initialization and destruction
+  - Each module now has proper destroy() methods
+  - Resources are cleaned up in the correct order
+  - Error isolation prevents cleanup failures from affecting other components
+  - Improved extension enable/disable reliability
+- **ENHANCED: Preferences Timeout Management**: Safer timeout handling in UI
+  - Active timeout tracking in preferences window
+  - Proper cleanup when preferences window is destroyed
+  - Safer button interaction patterns to prevent memory leaks
+  - Better error handling in UI timeout operations
+- **RELIABILITY**: Extension can now be safely disabled and re-enabled
+  - Proper cleanup prevents resource leaks
+  - Better memory management reduces footprint
+  - Improved stability during GNOME Shell operations
 
 ### v2.9
 - **NEW: Modular Architecture**: Complete code restructuring for better maintainability

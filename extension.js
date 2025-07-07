@@ -107,11 +107,8 @@ export default class ConfigSyncExtension extends Extension {
         this._stopChangeMonitoring();
         this._stopGitHubPolling();
         
-        // Stop status updates
-        if (this._statusUpdateTimer) {
-            GLib.source_remove(this._statusUpdateTimer);
-            this._statusUpdateTimer = null;
-        }
+        // Stop status updates with proper cleanup
+        this._stopStatusUpdateTimer();
         
         // Clean up session manager connections
         this._cleanupSessionHandlers();
@@ -156,7 +153,7 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Clean up all components
+     * Clean up all components with proper memory management
      */
     _cleanupComponents() {
         if (this._githubAPI) {
@@ -180,12 +177,19 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         if (this._wallpaperManager) {
-            this._wallpaperManager.clear();
+            this._wallpaperManager.destroy();
             this._wallpaperManager = null;
         }
         
+        if (this._syncManager) {
+            this._syncManager.destroy();
+            this._syncManager = null;
+        }
+        
+        // Clear remaining references
         this._etagManager = null;
-        this._syncManager = null;
+        
+        log('All components cleaned up successfully');
     }
     
     /**
@@ -217,25 +221,28 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Clean up session handlers
+     * Clean up session handlers with improved error handling
      */
     _cleanupSessionHandlers() {
         if (this._sessionSignalId && this._sessionManager) {
             try {
                 this._sessionManager.disconnect(this._sessionSignalId);
-                this._sessionSignalId = null;
                 log('Session manager signal disconnected');
             } catch (e) {
                 log(`Error disconnecting session manager signal: ${e.message}`);
+            } finally {
+                this._sessionSignalId = null;
             }
         }
         
         if (this._sessionManager) {
             try {
+                // Clear the proxy reference
                 this._sessionManager = null;
                 log('Session manager proxy cleaned up');
             } catch (e) {
                 log(`Error cleaning up session manager proxy: ${e.message}`);
+            } finally {
                 this._sessionManager = null;
             }
         }
@@ -280,7 +287,7 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Stop change monitoring
+     * Stop change monitoring with proper cleanup
      */
     _stopChangeMonitoring() {
         if (this._fileMonitor) {
@@ -291,7 +298,7 @@ export default class ConfigSyncExtension extends Extension {
             this._settingsMonitor.stopAll();
         }
         
-        // Clear debounce timeout
+        // Clear debounce timeout with proper nullification
         if (this._debounceTimeout) {
             GLib.source_remove(this._debounceTimeout);
             this._debounceTimeout = null;
@@ -311,9 +318,10 @@ export default class ConfigSyncExtension extends Extension {
             this._indicator.showChangeDetected();
         }
         
-        // Debounce changes
+        // Debounce changes with proper cleanup
         if (this._debounceTimeout) {
             GLib.source_remove(this._debounceTimeout);
+            this._debounceTimeout = null;
         }
         
         this._pendingChanges = true;
@@ -381,21 +389,35 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Schedule the next polling operation
+     * Schedule the next polling operation with proper cleanup
      */
     _scheduleNextPoll(intervalMs) {
         if (!this._isPolling) return;
         
+        // Clear any existing timeout first
+        if (this._pollingTimeout) {
+            GLib.source_remove(this._pollingTimeout);
+            this._pollingTimeout = null;
+        }
+        
         this._pollingTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, intervalMs, () => {
-            if (!this._isPolling) return GLib.SOURCE_REMOVE;
+            if (!this._isPolling) {
+                this._pollingTimeout = null;
+                return GLib.SOURCE_REMOVE;
+            }
             
             this._pollGitHubForChanges().then(() => {
-                this._scheduleNextPoll(intervalMs);
+                if (this._isPolling) {
+                    this._scheduleNextPoll(intervalMs);
+                }
             }).catch(error => {
                 log(`GitHub ETag polling error: ${error.message}`);
-                this._scheduleNextPoll(intervalMs);
+                if (this._isPolling) {
+                    this._scheduleNextPoll(intervalMs);
+                }
             });
             
+            this._pollingTimeout = null;
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -486,7 +508,7 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Stop GitHub polling
+     * Stop GitHub polling with proper cleanup
      */
     _stopGitHubPolling() {
         if (this._pollingTimeout) {
@@ -534,9 +556,12 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Setup status update timer
+     * Setup status update timer with proper management
      */
     _setupStatusUpdateTimer() {
+        // Clear any existing timer first
+        this._stopStatusUpdateTimer();
+        
         this._statusUpdateTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
             if (this._indicator && this._requestQueue && this._etagManager) {
                 // Update queue status
@@ -551,6 +576,16 @@ export default class ConfigSyncExtension extends Extension {
             }
             return GLib.SOURCE_CONTINUE;
         });
+    }
+    
+    /**
+     * Stop status update timer with proper cleanup
+     */
+    _stopStatusUpdateTimer() {
+        if (this._statusUpdateTimer) {
+            GLib.source_remove(this._statusUpdateTimer);
+            this._statusUpdateTimer = null;
+        }
     }
     
     /**

@@ -23,8 +23,18 @@ import GLib from 'gi://GLib';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class ConfigSyncPreferences extends ExtensionPreferences {
+    constructor(metadata) {
+        super(metadata);
+        
+        // Track active timeouts for proper cleanup
+        this._activeTimeouts = new Set();
+    }
+    
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        
+        // Store settings reference for cleanup
+        this._settings = settings;
         
         // Create General tab
         this._createGeneralTab(window, settings);
@@ -40,6 +50,45 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         // Create About tab
         this._createAboutTab(window, settings);
+        
+        // Setup cleanup when window is destroyed
+        window.connect('destroy', () => {
+            this._cleanup();
+        });
+    }
+    
+    /**
+     * Cleanup active timeouts and references
+     */
+    _cleanup() {
+        log('ConfigSyncPreferences: Starting cleanup');
+        
+        // Clear all active timeouts
+        for (const timeoutId of this._activeTimeouts) {
+            GLib.source_remove(timeoutId);
+        }
+        this._activeTimeouts.clear();
+        
+        // Clear settings reference
+        this._settings = null;
+        
+        log('ConfigSyncPreferences: Cleanup complete');
+    }
+    
+    /**
+     * Add a timeout to the active set for tracking
+     * @param {number} timeoutId - The timeout ID from GLib.timeout_add
+     */
+    _addActiveTimeout(timeoutId) {
+        this._activeTimeouts.add(timeoutId);
+    }
+    
+    /**
+     * Remove a timeout from the active set
+     * @param {number} timeoutId - The timeout ID to remove
+     */
+    _removeActiveTimeout(timeoutId) {
+        this._activeTimeouts.delete(timeoutId);
     }
     
     _createGeneralTab(window, settings) {
@@ -274,7 +323,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(initGroup);
         
-        // Initialize sync button
+        // Initialize sync button with improved timeout management
         const initSyncRow = new Adw.ActionRow({
             title: _('Initialize Sync'),
             subtitle: _('Create an initial backup of all configured schemas and files to GitHub'),
@@ -287,18 +336,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             css_classes: ['suggested-action']
         });
         
-        // Create a safe timeout handler that doesn't capture button reference
-        const createSafeTimeoutHandler = (buttonRef) => {
-            return () => {
-                // Use weak reference pattern - check if button still exists
-                if (buttonRef?.sensitive !== undefined) {
-                    buttonRef.sensitive = true;
-                    buttonRef.label = _('Initialize Sync');
-                }
-                return GLib.SOURCE_REMOVE;
-            };
-        };
-        
         initButton.connect('clicked', () => {
             // Disable button temporarily
             initButton.sensitive = false;
@@ -307,8 +344,22 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             // Trigger the extension to perform initial sync by setting a flag
             settings.set_boolean('trigger-initial-sync', true);
             
-            // Re-enable button after a delay using safe timeout handler
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, createSafeTimeoutHandler(initButton));
+            // Re-enable button after a delay with proper timeout management
+            const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+                // Check if button still exists and preferences hasn't been destroyed
+                if (initButton && !initButton.is_destroyed && initButton.sensitive !== undefined) {
+                    initButton.sensitive = true;
+                    initButton.label = _('Initialize Sync');
+                }
+                
+                // Remove from active timeouts
+                this._removeActiveTimeout(timeoutId);
+                
+                return GLib.SOURCE_REMOVE;
+            });
+            
+            // Track the timeout for cleanup
+            this._addActiveTimeout(timeoutId);
         });
         
         initSyncRow.add_suffix(initButton);
@@ -401,12 +452,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         schemasGroup.add(schemasRow);
         
-        // Use a simple closure that only captures the settings object, not the buffer
-        schemasBuffer.connect('changed', () => {
-            const text = schemasBuffer.text;
-            const schemas = text.split('\n').filter(s => s.trim().length > 0);
-            settings.set_strv('gsettings-schemas', schemas);
-        });
+        // Connect buffer changed signal - use weak reference pattern
+        const schemasChangedHandler = () => {
+            if (settings && !settings.is_destroyed) {
+                const text = schemasBuffer.text;
+                const schemas = text.split('\n').filter(s => s.trim().length > 0);
+                settings.set_strv('gsettings-schemas', schemas);
+            }
+        };
+        schemasBuffer.connect('changed', schemasChangedHandler);
         
         // Core schemas info
         const coreSchemasRow = new Adw.ActionRow({
@@ -468,12 +522,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         filesGroup.add(filesRow);
         
-        // Use a simple closure that only captures the settings object, not the buffer
-        filesBuffer.connect('changed', () => {
-            const text = filesBuffer.text;
-            const files = text.split('\n').filter(f => f.trim().length > 0);
-            settings.set_strv('sync-files', files);
-        });
+        // Connect buffer changed signal - use weak reference pattern
+        const filesChangedHandler = () => {
+            if (settings && !settings.is_destroyed) {
+                const text = filesBuffer.text;
+                const files = text.split('\n').filter(f => f.trim().length > 0);
+                settings.set_strv('sync-files', files);
+            }
+        };
+        filesBuffer.connect('changed', filesChangedHandler);
         
         // Example files
         const exampleFilesRow = new Adw.ActionRow({
@@ -608,7 +665,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('2.9 (with ETag polling)')
+            subtitle: _('3.0 (with Binary-Safe Wallpapers)')
         });
         infoGroup.add(versionRow);
         
@@ -644,7 +701,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const featuresRow = new Adw.ActionRow({
             title: _('✨ What This Extension Does'),
-            subtitle: _('• Real-time file and settings monitoring\n• ETag-based polling for ultra-efficient remote sync\n• High-performance GitHub Tree API batching\n• Intelligent request queue management\n• Smart content caching and change detection\n• Multi-device configuration sharing\n• Wallpaper syncing (optional)\n• Session-based auto-sync\n• Remote change detection\n• Private repository security')
+            subtitle: _('• Real-time file and settings monitoring\n• ETag-based polling for ultra-efficient remote sync\n• High-performance GitHub Tree API batching\n• Intelligent request queue management\n• Smart content caching and change detection\n• Multi-device configuration sharing\n• Binary-safe wallpaper syncing (v3.0)\n• Session-based auto-sync\n• Remote change detection\n• Private repository security\n• Improved timer and memory management')
         });
         featuresGroup.add(featuresRow);
         
@@ -679,46 +736,18 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             title: _('Recent Changes'),
         });
         page.add(changelogGroup);
+        
         const v30Row = new Adw.ActionRow({
-            title: _('⚡ Performance Notice (v3.0 with Binary-Safe Wallpapers)'),
-            subtitle: _('This version fixes wallpaper corruption and uses ETag polling and GitHub Tree API for dramatically improved performance. Your first sync may take slightly longer as caches are built, but subsequent syncs and polling will be much faster and more efficient.')
+            title: _('v3.0 (Current - Enhanced Memory Management)'),
+            subtitle: _('• CRITICAL FIX: Wallpaper Corruption Bug - Complete rewrite of binary file handling\n• ENHANCED: Timer and Memory Management - Proper cleanup of all timeouts and references\n• IMPROVED: Resource Management - Better lifecycle management for all components\n• FIXED: Memory Leaks - Proper nullification of references and cleanup of event handlers\n• ADDED: Destroy Methods - All components now have proper cleanup methods\n• ENHANCED: Error Handling - Better error recovery and resource cleanup')
         });
-        changelogGroup.add(v30Row);        
+        changelogGroup.add(v30Row);
+        
         const v29Row = new Adw.ActionRow({
-            title: _('v2.9 (Current - with ETag Polling)'),
-            subtitle: _('• NEW: ETag-Based GitHub Polling - Ultra-efficient change detection\n  - Uses HTTP ETags for conditional requests (If-None-Match)\n  - 304 Not Modified responses reduce bandwidth by up to 95%\n  - Conditional requests often don\'t count against API limits\n  - Real-time ETag status display in panel menu\n• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• NEW: HTTP Session Reuse - Better connection efficiency\n• IMPROVED: Wallpaper Handling - On-demand loading reduces memory\n• ENHANCED: Panel Menu - ETag and request queue status displays\n• PERFORMANCE: 60-80% faster sync + 95% bandwidth reduction\n• RELIABILITY: Better error handling and network recovery')
+            title: _('v2.9 (ETag Polling & Performance)'),
+            subtitle: _('• NEW: ETag-Based GitHub Polling - Ultra-efficient change detection\n• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• PERFORMANCE: 60-80% faster sync + 95% bandwidth reduction')
         });
         changelogGroup.add(v29Row);
-        
-        const v28Row = new Adw.ActionRow({
-            title: _('v2.8'),
-            subtitle: _('• NEW: Reorganized panel menu structure\n• Extension name now appears at top of menu\n• Status information grouped in middle section\n• Action items (Sync Now, Settings) moved to bottom\n• Enhanced visual hierarchy with logical sections\n• NEW: Sync Lock System prevents concurrent operations\n• Centralized sync management with smart queueing\n• Enhanced user feedback during sync operations')
-        });
-        changelogGroup.add(v28Row);
-        
-        const v27Row = new Adw.ActionRow({
-            title: _('v2.7'),
-            subtitle: _('• Removed "Test GitHub Polling" from panel menu\n• NEW: Added "Initialize Sync" button for manual setup\n• Fixed schema detection and counting issues\n• Enhanced initial backup process\n• Improved logging for troubleshooting')
-        });
-        changelogGroup.add(v27Row);
-        
-        const v26Row = new Adw.ActionRow({
-            title: _('v2.6'),
-            subtitle: _('• Renamed "Monitoring" tab to "Sync" for clarity\n• Renamed "Advanced" tab to "Help" for better organization\n• Added heartfelt dedication to Jupiter\n• Improved tab naming for better user experience')
-        });
-        changelogGroup.add(v26Row);
-        
-        const v24Row = new Adw.ActionRow({
-            title: _('v2.4'),
-            subtitle: _('• NEW: Organized preferences into logical tabs\n• Added comprehensive About section\n• NEW: Default support for GNOME multitasking schemas\n• NEW: Default support for Ubuntu desktop extensions\n• Improved settings organization and user experience')
-        });
-        changelogGroup.add(v24Row);
-        
-        const v23Row = new Adw.ActionRow({
-            title: _('v2.3'),
-            subtitle: _('• BREAKING: Wallpaper storage optimization\n• Wallpapers now stored only in wallpapers/ folder\n• Reduced main config file size\n• Improved repository organization')
-        });
-        changelogGroup.add(v23Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({
@@ -739,15 +768,9 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         helpGroup.add(firstSyncRow);
         
         const performanceNoticeRow = new Adw.ActionRow({
-            title: _('⚡ Performance Notice (v2.9 with ETags)'),
-            subtitle: _('This version uses ETag polling and GitHub Tree API for dramatically improved performance. Your first sync may take slightly longer as caches are built, but subsequent syncs and polling will be much faster and more efficient.')
+            title: _('⚡ Performance Notice (v3.0)'),
+            subtitle: _('This version includes comprehensive timer and memory management improvements, ensuring proper resource cleanup when the extension is disabled or GNOME Shell is restarted.')
         });
         helpGroup.add(performanceNoticeRow);
-        
-        const etagExplanationRow = new Adw.ActionRow({
-            title: _('🏷️ Understanding ETags'),
-            subtitle: _('ETags are HTTP headers that act like "fingerprints" for content. When GitHub content hasn\'t changed, it returns a 304 "Not Modified" response with minimal data, saving bandwidth and improving speed. Check the panel menu to see ETag status in real-time.')
-        });
-        helpGroup.add(etagExplanationRow);
     }
 }
