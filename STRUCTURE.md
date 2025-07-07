@@ -12,14 +12,14 @@ gnoming-profiles/
 ├── LICENSE                        # GNU GPL v2.0 license
 ├── README.md                      # Main documentation
 ├── STRUCTURE.md                   # This file
-├── lib/                          # Modular components (NEW in v2.9)
+├── lib/                          # Modular components (NEW in v2.9, enhanced v3.0)
 │   ├── README.md                 # Module documentation
 │   ├── RequestQueue.js           # API request concurrency management
 │   ├── ETagManager.js            # ETag caching for efficient polling
-│   ├── GitHubAPI.js              # GitHub API integration
+│   ├── GitHubAPI.js              # GitHub API integration with binary-safe downloads (v3.0)
 │   ├── FileMonitor.js            # File system change monitoring
 │   ├── SettingsMonitor.js        # GSettings change monitoring
-│   ├── WallpaperManager.js       # Wallpaper syncing management
+│   ├── WallpaperManager.js       # Binary-safe wallpaper syncing management (v3.0)
 │   ├── SyncManager.js            # Sync operations coordination
 │   ├── PanelIndicator.js         # GNOME Shell panel UI
 │   └── Utils.js                  # Common utility functions
@@ -41,12 +41,12 @@ gnoming-profiles/
 #### Infrastructure Modules
 - **`RequestQueue.js`**: Manages GitHub API request concurrency to prevent rate limiting
 - **`ETagManager.js`**: Handles ETag caching for bandwidth-efficient HTTP conditional requests
-- **`GitHubAPI.js`**: Comprehensive GitHub API client with ETag support and Tree API batching
+- **`GitHubAPI.js`**: Comprehensive GitHub API client with ETag support, Tree API batching, and binary-safe downloads (v3.0)
 
 #### Monitoring Modules  
 - **`FileMonitor.js`**: Watches configuration files for changes using Gio.FileMonitor
 - **`SettingsMonitor.js`**: Monitors GSettings schemas for changes with availability checking
-- **`WallpaperManager.js`**: Handles wallpaper file syncing with on-demand loading
+- **`WallpaperManager.js`**: Handles binary-safe wallpaper file syncing with corruption prevention (v3.0)
 
 #### Coordination Modules
 - **`SyncManager.js`**: Coordinates backup/restore operations with locking and caching
@@ -108,6 +108,7 @@ graph TD
 - Request queuing prevents API rate limiting
 - Content caching avoids unnecessary uploads
 - On-demand loading reduces memory usage
+- Binary-safe downloads prevent corruption (v3.0)
 
 ## Build Process
 
@@ -177,3 +178,31 @@ make clean
 4. **Disable**: Cleanup resources and stop all monitoring
 
 The modular architecture ensures clean startup, efficient operation, and proper cleanup throughout the extension lifecycle.
+
+## Version 3.0 Enhancements
+
+### Binary-Safe Wallpaper Syncing
+- **Corruption Prevention**: Proper binary data handling prevents file corruption
+- **Header Validation**: JPEG and PNG header verification
+- **File Integrity**: Downloaded files are validated for correctness
+- **Error Detection**: Early detection of corrupt or incomplete downloads
+
+### Enhanced GitHubAPI Module
+- **Binary Download Support**: New `downloadBinaryFile()` method
+- **Proper Binary Handling**: Separate binary vs text response handling
+- **User Agent Update**: Reflects v3.0.0-BinarySafe for identification
+
+### Improved WallpaperManager Module
+- **Corruption-Free Downloads**: Fixed binary data handling throughout
+- **Validation System**: Comprehensive file integrity checking
+- **Diagnostic Tools**: Methods to validate and debug wallpaper issues
+- **Better Error Reporting**: Clear messages for corruption or validation failures
+
+### Key Fixes in v3.0
+1. **Binary Corruption**: Fixed improper string conversion of binary data
+2. **Header Validation**: Added JPEG (0xFF 0xD8 0xFF) and PNG header checks
+3. **File Verification**: Ensured downloaded files match expected size and format
+4. **URI Mapping**: Fixed wallpaper URI lookup by filename instead of schema-key
+5. **Error Handling**: Better detection and reporting of wallpaper issues
+
+The v3.0 architecture maintains all v2.9 performance benefits while adding crucial reliability improvements for wallpaper syncing.

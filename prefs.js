@@ -679,7 +679,11 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             title: _('Recent Changes'),
         });
         page.add(changelogGroup);
-        
+        const v30Row = new Adw.ActionRow({
+            title: _('⚡ Performance Notice (v3.0 with Binary-Safe Wallpapers)'),
+            subtitle: _('This version fixes wallpaper corruption and uses ETag polling and GitHub Tree API for dramatically improved performance. Your first sync may take slightly longer as caches are built, but subsequent syncs and polling will be much faster and more efficient.')
+        });
+        changelogGroup.add(v30Row);        
         const v29Row = new Adw.ActionRow({
             title: _('v2.9 (Current - with ETag Polling)'),
             subtitle: _('• NEW: ETag-Based GitHub Polling - Ultra-efficient change detection\n  - Uses HTTP ETags for conditional requests (If-None-Match)\n  - 304 Not Modified responses reduce bandwidth by up to 95%\n  - Conditional requests often don\'t count against API limits\n  - Real-time ETag status display in panel menu\n• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• NEW: HTTP Session Reuse - Better connection efficiency\n• IMPROVED: Wallpaper Handling - On-demand loading reduces memory\n• ENHANCED: Panel Menu - ETag and request queue status displays\n• PERFORMANCE: 60-80% faster sync + 95% bandwidth reduction\n• RELIABILITY: Better error handling and network recovery')

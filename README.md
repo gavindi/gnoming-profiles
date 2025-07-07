@@ -1,12 +1,13 @@
 # Gnoming Profiles Extension
 
-A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, and a modular architecture for enhanced maintainability.
+A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, binary-safe wallpaper syncing, and a modular architecture for enhanced maintainability.
 
 ## Features
 
 - **Automatic Sync**: Backup on logout, restore on login
 - **Real-time Change Monitoring**: Automatically sync when files or settings change
 - **ETag-Based GitHub Polling**: Efficient change detection with minimal bandwidth usage (v2.9+)
+- **Binary-Safe Wallpaper Syncing**: Corruption-free wallpaper sync with header validation (v3.0+)
 - **High-Performance Batching**: Upload multiple files in single commits using GitHub Tree API (v2.9+)
 - **Request Queue Management**: Intelligent concurrency limits and queue management (v2.9+)
 - **Smart Caching**: SHA-based caching to avoid unnecessary uploads (v2.9+)
@@ -14,7 +15,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **GSettings Support**: Monitor and sync any GSettings schema in real-time
 - **Multitasking & Workspaces**: Full sync of GNOME workspace and window management settings
 - **Ubuntu Desktop Support**: Automatic sync of Ubuntu-specific desktop extensions and settings
-- **Wallpaper Sync**: Optionally sync desktop and lock screen wallpapers
+- **Wallpaper Sync**: Optionally sync desktop and lock screen wallpapers with binary integrity
 - **File Monitoring**: Watch configuration files for changes and sync automatically
 - **Smart Debouncing**: Configurable delay to prevent excessive syncing
 - **Private Repository**: Uses GitHub private repositories for security
@@ -38,13 +39,13 @@ The extension features a completely modular architecture with clean separation o
 ### Core Modules
 - **RequestQueue**: Manages GitHub API concurrency and rate limiting
 - **ETagManager**: Handles ETag caching for bandwidth-efficient polling  
-- **GitHubAPI**: GitHub integration with ETag support and Tree API batching
+- **GitHubAPI**: GitHub integration with ETag support, Tree API batching, and binary-safe downloads (v3.0+)
 - **SyncManager**: Coordinates all backup/restore operations
 
 ### Monitoring Modules
 - **FileMonitor**: Real-time file system change detection
 - **SettingsMonitor**: GSettings schema change monitoring
-- **WallpaperManager**: Wallpaper syncing and URI management
+- **WallpaperManager**: Binary-safe wallpaper syncing and URI management (v3.0+)
 
 ### UI Module
 - **PanelIndicator**: GNOME Shell panel integration and user interface
@@ -126,6 +127,12 @@ See `lib/README.md` for detailed module documentation.
 - **Reduced Latency**: Faster subsequent requests to GitHub API
 - **Resource Efficiency**: Lower network overhead and connection setup time
 
+### **Binary-Safe Downloads (v3.0+)**
+- **Proper Binary Handling**: Wallpapers downloaded without corruption
+- **Header Validation**: JPEG/PNG header verification to detect corruption
+- **File Integrity**: Binary data preserved throughout download process
+- **Error Detection**: Early detection of corrupted downloads
+
 ## Panel Menu Interface
 
 The extension features a clean, organized panel menu with logical sections:
@@ -176,7 +183,7 @@ The extension features a clean, organized panel menu with logical sections:
 
 ## Wallpaper Syncing (Optional)
 
-Wallpaper syncing is **disabled by default** but can be enabled in preferences. When enabled, the extension automatically detects and syncs your desktop and lock screen wallpapers.
+Wallpaper syncing is **disabled by default** but can be enabled in preferences. When enabled, the extension automatically detects and syncs your desktop and lock screen wallpapers with full binary integrity (v3.0+).
 
 ### **Enable Wallpaper Syncing**
 1. Open extension preferences
@@ -196,7 +203,11 @@ Wallpaper syncing is **disabled by default** but can be enabled in preferences. 
 3. **Restore**: Files are downloaded to `~/.local/share/gnoming-profiles/wallpapers/`
 4. **Update**: GSettings are updated to point to the restored wallpaper files
 
-### **Performance Improvements in v2.9**
+### **Binary-Safe Performance in v3.0**
+- **Corruption-Free Downloads**: Proper binary handling prevents file corruption
+- **Header Validation**: JPEG (0xFF 0xD8 0xFF) and PNG header verification
+- **File Integrity Checks**: Downloaded files are validated for correctness
+- **Error Detection**: Early detection of corrupt or incomplete downloads
 - **Batched Upload**: Wallpapers are uploaded together with other files in single commits
 - **On-Demand Loading**: Wallpaper content is loaded only when needed, reducing memory usage
 - **Content Caching**: SHA-based detection prevents re-uploading unchanged wallpapers
@@ -247,6 +258,7 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 
 ### Wallpaper Syncing Settings
 - **Sync Wallpapers**: Enable/disable wallpaper image syncing (default: disabled)
+- **Binary Integrity**: Automatic corruption detection and validation (v3.0+)
 - **Automatic Schema Addition**: Wallpaper schemas added automatically when enabled
 - **Storage Location**: Wallpapers restored to `~/.local/share/gnoming-profiles/wallpapers/`
 - **Repository Storage**: Wallpapers uploaded to `wallpapers/` folder in GitHub repo
@@ -266,6 +278,7 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 - **Visual Indicators**: Panel icon changes to show sync and monitoring status
 - **Request Queue Monitoring**: Real-time visibility into GitHub API request status (v2.9+)
 - **ETag Status Display**: Shows current ETag cache state and polling efficiency (v2.9+)
+- **Binary Validation**: Header validation and corruption detection for image files (v3.0+)
 
 ## Panel Indicator States
 
@@ -291,7 +304,7 @@ files/
         gtk-3.0/
           settings.ini
 wallpapers/                 # Optional: Only if wallpaper sync enabled
-  my-wallpaper.jpg          # Desktop wallpaper files
+  my-wallpaper.jpg          # Desktop wallpaper files (binary-safe v3.0+)
   lock-screen.png           # Lock screen wallpaper files
 ```
 
@@ -300,9 +313,10 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - **Private Repositories**: Only works with private GitHub repositories
 - **Encrypted Storage**: Personal access tokens stored encrypted by GNOME
 - **Selective Sync**: Only configured schemas and files are monitored and synced
-- **Text-only**: Binary files are automatically detected and skipped
+- **Text-only**: Binary files are automatically detected and skipped (except wallpapers)
 - **Permission Control**: Uses minimal GitHub API permissions (repo scope only)
 - **ETag Security**: ETags stored in memory only (not persisted to disk)
+- **Binary Integrity**: Wallpaper files validated for corruption (v3.0+)
 
 ## Change Monitoring Details
 
@@ -356,6 +370,7 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - **Request Queuing**: Intelligent concurrency control prevents API overload (v2.9+)
 - **Smart Caching**: Content-based change detection avoids unnecessary uploads (v2.9+)
 - **ETag Efficiency**: Conditional requests minimize unnecessary data transfer (v2.9+)
+- **Binary-Safe Processing**: Wallpapers handled without corruption (v3.0+)
 
 ## Troubleshooting
 
@@ -369,6 +384,7 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Gnoming Profiles"
 journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHub API"
 journalctl -f -o cat /usr/bin/gnome-shell | grep "Sync Manager"
 journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ```
 
 ### Change Monitoring Not Working
@@ -412,6 +428,14 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
 4. Try manual "Sync Now" to test connectivity
 5. Check ETag status - "Not cached" may indicate polling issues
 
+### Wallpaper Corruption Issues (v3.0+ FIXED)
+1. **Corrupted wallpapers**: Fixed in v3.0 with proper binary handling
+2. **"Not a JPEG file" errors**: Fixed - wallpapers now download without corruption
+3. **Invalid headers**: v3.0 validates JPEG/PNG headers and reports corruption
+4. **File integrity**: Downloaded files are now verified for correctness
+5. **Empty files**: Zero-byte wallpaper files are automatically skipped and reported
+6. **Large files**: Files over 50MB are automatically skipped; over 10MB show warnings
+
 ### Excessive GitHub API Usage
 1. Enable ETag polling for dramatically reduced API usage (v2.9+)
 2. Increase the "Change Sync Delay" in preferences
@@ -422,19 +446,9 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
 ### Files Not Syncing
 1. Ensure files exist and are readable
 2. Check file paths use correct syntax (~ for home directory)
-3. Binary files are automatically skipped
+3. Binary files are automatically skipped (except wallpapers)
 4. Parent directories must be accessible
 5. Check request queue status for upload issues (v2.9+)
-
-### Wallpaper Sync Issues (v2.9+)
-1. **"JSON.parse: unexpected character" error**: Fixed in v2.9 - extension now properly handles both GitHub API responses and direct file downloads
-2. **"Wallpaper file no longer exists" message**: This is normal when wallpapers are deleted or moved - extension will skip missing files gracefully
-3. **Large wallpaper files**: Files over 10MB will show warnings; over 50MB are automatically skipped
-4. **Non-image files**: Extension validates content type and skips non-image files
-5. **Wallpaper not restored**: Check `~/.local/share/gnoming-profiles/wallpapers/` directory
-6. **Path issues**: Extension automatically updates GSettings URIs to point to restored files
-7. **Binary corruption**: Fixed - extension now preserves binary integrity during download
-8. **Empty files**: Zero-byte wallpaper files are automatically skipped
 
 ## Requirements
 
@@ -449,12 +463,13 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
 
 Bugs should be reported to the Github bug tracker [https://github.com/gavindi/gnoming-profiles/issues](https://github.com/gavindi/gnoming-profiles/issues).
 
-When reporting issues with change monitoring or ETag polling, please include:
+When reporting issues with change monitoring, ETag polling, or wallpaper syncing, please include:
 - GNOME Shell version
 - Extension version
 - Monitored files and schemas list
 - ETag polling status from panel menu
 - GNOME Shell logs showing the issue
+- For wallpaper issues: output of wallpaper validation diagnostic
 
 ## License
 
@@ -462,7 +477,36 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v2.9 (Current)
+### v3.0 (Current)
+- **CRITICAL FIX: Wallpaper Corruption Bug**: Complete rewrite of binary file handling
+  - Fixed "Not a JPEG file: starts with 0xfd 0xfd" and similar corruption errors
+  - Proper binary data handling throughout download process
+  - Binary files no longer corrupted during GitHub download
+  - Added comprehensive header validation for JPEG (0xFF 0xD8 0xFF) and PNG files
+  - Wallpapers now download and display correctly without corruption
+- **NEW: Binary-Safe Download System**: Enhanced GitHubAPI with proper binary support
+  - New `downloadBinaryFile()` method for corruption-free binary downloads
+  - Separate binary vs text handling in HTTP requests
+  - Proper Uint8Array handling without string conversion
+- **NEW: Wallpaper Validation System**: Comprehensive file integrity checking
+  - JPEG and PNG header validation to detect corruption early
+  - File size verification and integrity checks
+  - Diagnostic tools to validate downloaded wallpapers
+  - Clear error messages for corrupted or invalid files
+- **ENHANCED: Error Detection**: Better reporting of wallpaper issues
+  - Early detection of corrupt downloads with detailed error messages
+  - File verification after download to ensure integrity
+  - Comprehensive logging for troubleshooting wallpaper problems
+- **IMPROVED: Wallpaper URI Management**: Fixed URI mapping bugs
+  - Corrected wallpaper data lookup by filename instead of schema-key
+  - Better fallback handling for missing wallpaper mappings
+  - Improved GSettings URI updates to point to correct local files
+- **RELIABILITY**: Wallpapers now work consistently across sync operations
+  - Files download correctly and display properly in GNOME
+  - GSettings point to valid, working wallpaper files
+  - No more corrupted or unreadable wallpaper files
+
+### v2.9
 - **NEW: Modular Architecture**: Complete code restructuring for better maintainability
   - 9 specialized modules with clear separation of concerns
   - Enhanced testability and debugging capabilities  
@@ -497,16 +541,6 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - Wallpaper content loaded only when needed for upload
   - Better memory efficiency for large wallpaper files
   - Wallpapers included in batch commits for better organization
-- **FIXED: Wallpaper Download Issues**: Proper handling of binary file downloads
-  - Fixed "JSON.parse: unexpected character" error with custom wallpapers
-  - Proper binary data handling for GitHub download URLs vs API URLs
-  - Maintains file integrity during download and restoration
-- **IMPROVED: Wallpaper Validation**: Comprehensive file validation and error handling
-  - Graceful handling of missing, deleted, or moved wallpaper files
-  - Smart file size validation (50MB limit, 10MB warning)
-  - Content type checking for image files
-  - Extension-based validation as backup
-  - Clear logging messages distinguish normal conditions from errors
 - **ENHANCED: Panel Menu**: Added ETag and request queue status displays
   - Real-time visibility into ETag polling efficiency
   - Real-time visibility into pending and active GitHub requests

@@ -28,9 +28,9 @@ dist:
 clean:
 	rm -rf $(DISTDIR)
 
-# Performance test target for v2.9 with ETag polling
+# Performance test target for v3.0 with binary-safe wallpaper syncing
 test-performance:
-	@echo "Testing v2.9 performance improvements with ETag polling..."
+	@echo "Testing v3.0 performance improvements with binary-safe wallpaper syncing..."
 	@echo "1. Enable the extension and monitor sync times"
 	@echo "2. Check panel menu for ETag polling status"
 	@echo "3. Monitor request queue status for concurrency"
@@ -39,6 +39,7 @@ test-performance:
 	@echo "6. Monitor GitHub repository for batch commits"
 	@echo "7. Verify reduced API calls in GitHub rate limit usage"
 	@echo "8. Check bandwidth usage reduction (up to 95% with ETags)"
+	@echo "9. Test wallpaper sync without corruption (v3.0)"
 
 # ETag efficiency testing
 test-etag:
@@ -52,9 +53,21 @@ test-etag:
 	@echo "4. Check GitHub API rate limit usage (should be minimal)"
 	@echo "5. Test with frequent polling intervals (1-2 minutes)"
 
+# Binary-safe wallpaper testing (NEW in v3.0)
+test-wallpapers:
+	@echo "Testing binary-safe wallpaper syncing (v3.0)..."
+	@echo "1. Enable wallpaper syncing in extension preferences"
+	@echo "2. Set custom wallpapers in GNOME settings"
+	@echo "3. Perform manual sync and check logs for corruption validation"
+	@echo "4. Verify wallpapers download to ~/.local/share/gnoming-profiles/wallpapers/"
+	@echo "5. Check that downloaded wallpapers open correctly in image viewer"
+	@echo "6. Verify JPEG headers start with 0xFF 0xD8 0xFF"
+	@echo "7. Verify PNG headers start with 0x89 0x50 0x4E 0x47"
+	@echo "8. Test that GSettings point to correct local wallpaper files"
+
 # Full feature testing
 test-features:
-	@echo "Testing all v2.9 features..."
+	@echo "Testing all v3.0 features..."
 	@echo "GitHub Tree API Batching:"
 	@echo "  - Multiple file changes in single commits"
 	@echo "  - Check repository for clean commit history"
@@ -69,5 +82,9 @@ test-features:
 	@echo "  - Skip uploads for unchanged files"
 	@echo "HTTP Session Reuse:"
 	@echo "  - Connection pooling for better performance"
+	@echo "Binary-Safe Wallpapers (v3.0):"
+	@echo "  - Corruption-free wallpaper downloads"
+	@echo "  - Header validation for JPEG/PNG files"
+	@echo "  - File integrity verification"
 
-.PHONY: install uninstall dist clean test-performance test-etag test-features
+.PHONY: install uninstall dist clean test-performance test-etag test-wallpapers test-features

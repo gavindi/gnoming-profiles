@@ -66,7 +66,7 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     enable() {
-        log('Gnoming Profiles extension enabling (v2.9.0) with modular architecture');
+        log('Gnoming Profiles extension enabling (v3.0.0) with binary-safe wallpaper syncing');
         
         // Initialize settings
         this._settings = this.getSettings();
