@@ -1,3 +1,4 @@
+![logo](https://github.com/gavindi/gnoming-profiles/blob/dev/icons/system-switch-user-symbolic.svg)
 # Gnoming Profiles Extension
 ![screenshot](https://github.com/gavindi/gnoming-profiles/blob/master/media/GnomingProfilesScreenshot.png)
 
