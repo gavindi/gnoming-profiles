@@ -114,6 +114,16 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_string('github-username', usernameRow.text);
         });
         githubGroup.add(usernameRow);
+            
+        // GitHub token
+        const tokenRow = new Adw.PasswordEntryRow({
+            title: _('Personal Access Token'),
+            text: settings.get_string('github-token')
+        });
+        tokenRow.connect('changed', () => {
+            settings.set_string('github-token', tokenRow.text);
+        });
+        githubGroup.add(tokenRow);
         
         // GitHub repository
         const repoRow = new Adw.EntryRow({
@@ -124,16 +134,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_string('github-repo', repoRow.text);
         });
         githubGroup.add(repoRow);
-        
-        // GitHub token
-        const tokenRow = new Adw.PasswordEntryRow({
-            title: _('Personal Access Token'),
-            text: settings.get_string('github-token')
-        });
-        tokenRow.connect('changed', () => {
-            settings.set_string('github-token', tokenRow.text);
-        });
-        githubGroup.add(tokenRow);
         
         // Session sync settings group
         const sessionGroup = new Adw.PreferencesGroup({
