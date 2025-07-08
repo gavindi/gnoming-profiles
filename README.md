@@ -1,4 +1,5 @@
 # Gnoming Profiles Extension
+![screenshot](https://github.com/gavindi/gnoming-profiles/blob/master/media/GnomingProfilesScreenshot.png)
 
 A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, binary-safe wallpaper syncing, enhanced timer and memory management, and a modular architecture for enhanced maintainability.
 
