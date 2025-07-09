@@ -28,7 +28,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Organized Menu**: Clean, intuitive panel menu with logical sections
 
 ## Demo
-![Demo](https://youtu.be/6QftnXT5tCo)
+[![Demo](https://i9.ytimg.com/vi_webp/6QftnXT5tCo/mq2.webp?sqp=CKT5u8MG&rs=AOn4CLApGxIz13UaU9JNbf4Heg9dnjK0VQ)](https://youtu.be/6QftnXT5tCo)
 
 ## Installation
 
