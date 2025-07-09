@@ -28,7 +28,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Organized Menu**: Clean, intuitive panel menu with logical sections
 
 ## Demo
-![](media/Gnoming Profiles Video 1.mov)
+![](https://github.com/gavindi/gnoming-profiles/blob/dev/media/Gnoming%20Profiles%20Video%201.mov)
 
 ## Installation
 
