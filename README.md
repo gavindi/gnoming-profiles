@@ -27,6 +27,9 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **Visual Feedback**: Panel indicator shows sync status and monitoring state
 - **Organized Menu**: Clean, intuitive panel menu with logical sections
 
+## Demo
+![](media/Gnoming Profiles Video 1.mov)
+
 ## Installation
 
 1. Clone or download this extension
