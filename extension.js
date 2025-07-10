@@ -1,5 +1,5 @@
 /*
- * Gnoming Profiles extension for Gnome 45+
+ * Gnoming Profiles extension for Gnome 46+
  * Copyright 2025 Gavin Graham (gavindi)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -66,7 +66,7 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     enable() {
-        log('Gnoming Profiles extension enabling (v3.0.0) with binary-safe wallpaper syncing');
+        console.log('Gnoming Profiles extension enabling (v3.0.0) with binary-safe wallpaper syncing');
         
         // Initialize settings
         this._settings = this.getSettings();
@@ -97,11 +97,11 @@ export default class ConfigSyncExtension extends Extension {
             this._performInitialSync();
         }
         
-        log('Gnoming Profiles extension enabled successfully');
+        console.log('Gnoming Profiles extension enabled successfully');
     }
     
     disable() {
-        log('Gnoming Profiles extension disabling');
+        console.log('Gnoming Profiles extension disabling');
         
         // Stop all monitoring and polling
         this._stopChangeMonitoring();
@@ -125,7 +125,7 @@ export default class ConfigSyncExtension extends Extension {
         // Clear settings reference
         this._settings = null;
         
-        log('Gnoming Profiles extension disabled');
+        console.log('Gnoming Profiles extension disabled');
     }
     
     /**
@@ -149,7 +149,7 @@ export default class ConfigSyncExtension extends Extension {
         this._fileMonitor.setChangeCallback((source) => this._onChangeDetected(source));
         this._settingsMonitor.setChangeCallback((source) => this._onChangeDetected(source));
         
-        log('All components initialized successfully');
+        console.log('All components initialized successfully');
     }
     
     /**
@@ -189,7 +189,7 @@ export default class ConfigSyncExtension extends Extension {
         // Clear remaining references
         this._etagManager = null;
         
-        log('All components cleaned up successfully');
+        console.log('All components cleaned up successfully');
     }
     
     /**
@@ -214,9 +214,9 @@ export default class ConfigSyncExtension extends Extension {
                 }
             });
             
-            log('Session handlers setup complete');
+            console.log('Session handlers setup complete');
         } catch (e) {
-            log(`Failed to setup session handlers: ${e.message}`);
+            console.error(`Failed to setup session handlers: ${e.message}`);
         }
     }
     
@@ -227,9 +227,9 @@ export default class ConfigSyncExtension extends Extension {
         if (this._sessionSignalId && this._sessionManager) {
             try {
                 this._sessionManager.disconnect(this._sessionSignalId);
-                log('Session manager signal disconnected');
+                console.log('Session manager signal disconnected');
             } catch (e) {
-                log(`Error disconnecting session manager signal: ${e.message}`);
+                console.error(`Error disconnecting session manager signal: ${e.message}`);
             } finally {
                 this._sessionSignalId = null;
             }
@@ -239,9 +239,9 @@ export default class ConfigSyncExtension extends Extension {
             try {
                 // Clear the proxy reference
                 this._sessionManager = null;
-                log('Session manager proxy cleaned up');
+                console.log('Session manager proxy cleaned up');
             } catch (e) {
-                log(`Error cleaning up session manager proxy: ${e.message}`);
+                console.error(`Error cleaning up session manager proxy: ${e.message}`);
             } finally {
                 this._sessionManager = null;
             }
@@ -270,7 +270,7 @@ export default class ConfigSyncExtension extends Extension {
         
         if (!changeMonitoringEnabled) {
             this._indicator.updateMonitoringStatus(false, filePaths.length, availableSchemas.length);
-            log(`Change monitoring disabled. Configured: ${filePaths.length} files, ${availableSchemas.length}/${allSchemas.length} schemas available`);
+            console.log(`Change monitoring disabled. Configured: ${filePaths.length} files, ${availableSchemas.length}/${allSchemas.length} schemas available`);
             return;
         }
         
@@ -283,7 +283,7 @@ export default class ConfigSyncExtension extends Extension {
         // Update indicator
         this._indicator.updateMonitoringStatus(true, this._fileMonitor.getMonitorCount(), successfulSchemas);
         
-        log(`Change monitoring enabled: ${this._fileMonitor.getMonitorCount()} files, ${successfulSchemas} schemas monitored`);
+        console.log(`Change monitoring enabled: ${this._fileMonitor.getMonitorCount()} files, ${successfulSchemas} schemas monitored`);
     }
     
     /**
@@ -306,7 +306,7 @@ export default class ConfigSyncExtension extends Extension {
         
         this._pendingChanges = false;
         
-        log('Change monitoring stopped');
+        console.log('Change monitoring stopped');
     }
     
     /**
@@ -329,7 +329,7 @@ export default class ConfigSyncExtension extends Extension {
         
         this._debounceTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, debounceDelay, () => {
             if (this._pendingChanges) {
-                log(`Triggering sync due to change: ${source}`);
+                console.log(`Triggering sync due to change: ${source}`);
                 this._syncOnChange();
                 this._pendingChanges = false;
             }
@@ -337,7 +337,7 @@ export default class ConfigSyncExtension extends Extension {
             return GLib.SOURCE_REMOVE;
         });
         
-        log(`Change detected from ${source}, sync scheduled in ${debounceDelay}ms`);
+        console.log(`Change detected from ${source}, sync scheduled in ${debounceDelay}ms`);
     }
     
     /**
@@ -373,7 +373,7 @@ export default class ConfigSyncExtension extends Extension {
         const username = this._settings.get_string('github-username');
         
         if (!token || !repo || !username) {
-            log('GitHub polling: Credentials not configured');
+            console.warn('GitHub polling: Credentials not configured');
             this._indicator.updatePollingStatus(false, 0);
             return;
         }
@@ -381,7 +381,7 @@ export default class ConfigSyncExtension extends Extension {
         const intervalMinutes = this._settings.get_int('github-polling-interval');
         this._isPolling = true;
         
-        log(`GitHub ETag polling: Starting for ${username}/${repo} every ${intervalMinutes} minutes`);
+        console.log(`GitHub ETag polling: Starting for ${username}/${repo} every ${intervalMinutes} minutes`);
         
         // Start polling
         this._scheduleNextPoll(intervalMinutes * 60 * 1000);
@@ -411,7 +411,7 @@ export default class ConfigSyncExtension extends Extension {
                     this._scheduleNextPoll(intervalMs);
                 }
             }).catch(error => {
-                log(`GitHub ETag polling error: ${error.message}`);
+                console.error(`GitHub ETag polling error: ${error.message}`);
                 if (this._isPolling) {
                     this._scheduleNextPoll(intervalMs);
                 }
@@ -431,12 +431,12 @@ export default class ConfigSyncExtension extends Extension {
         const username = this._settings.get_string('github-username');
         
         try {
-            log(`GitHub ETag polling: Checking ${username}/${repo} for changes...`);
+            console.log(`GitHub ETag polling: Checking ${username}/${repo} for changes...`);
             
             const result = await this._githubAPI.pollForChanges(username, repo, token);
             
             if (result.etag304) {
-                log('GitHub ETag polling: No changes detected (304 Not Modified)');
+                console.log('GitHub ETag polling: No changes detected (304 Not Modified)');
                 if (this._indicator) {
                     this._indicator.showETagEfficiency();
                 }
@@ -444,14 +444,14 @@ export default class ConfigSyncExtension extends Extension {
             }
             
             if (!result.hasChanges || result.commits.length === 0) {
-                log('GitHub ETag polling: No commits found');
+                console.log('GitHub ETag polling: No commits found');
                 return;
             }
             
             const latestCommit = result.commits[0];
             const latestCommitSha = latestCommit.sha;
             
-            log(`GitHub ETag polling: Latest commit ${latestCommitSha.substring(0, 7)}`);
+            console.log(`GitHub ETag polling: Latest commit ${latestCommitSha.substring(0, 7)}`);
             
             // Check for new commits
             if (!this._lastKnownCommit) {
@@ -460,13 +460,13 @@ export default class ConfigSyncExtension extends Extension {
             }
             
             if (this._lastKnownCommit !== latestCommitSha) {
-                log(`GitHub ETag polling: New commit detected! ${latestCommitSha.substring(0, 7)}`);
+                console.log(`GitHub ETag polling: New commit detected! ${latestCommitSha.substring(0, 7)}`);
                 this._onRemoteChangesDetected(latestCommit);
                 this._lastKnownCommit = latestCommitSha;
             }
             
         } catch (error) {
-            log(`GitHub ETag polling error: ${error.message}`);
+            console.error(`GitHub ETag polling error: ${error.message}`);
         }
     }
     
@@ -483,7 +483,7 @@ export default class ConfigSyncExtension extends Extension {
         const autoSyncRemote = this._settings.get_boolean('auto-sync-remote-changes');
         
         if (autoSyncRemote) {
-            log('GitHub ETag polling: Starting auto-sync of remote changes');
+            console.log('GitHub ETag polling: Starting auto-sync of remote changes');
             
             this._performSyncOperation('remote changes', async () => {
                 const result = await this._syncManager.syncFromGitHub();
@@ -500,7 +500,7 @@ export default class ConfigSyncExtension extends Extension {
                 return 'Remote sync complete';
             }, true);
         } else {
-            log('GitHub ETag polling: Auto-sync disabled, showing manual pull option');
+            console.log('GitHub ETag polling: Auto-sync disabled, showing manual pull option');
             if (this._indicator) {
                 this._indicator.updateStatus(_('Remote changes available - check menu to pull'));
             }
@@ -525,7 +525,7 @@ export default class ConfigSyncExtension extends Extension {
             this._indicator.clearRemoteChanges();
         }
         
-        log('GitHub ETag polling stopped');
+        console.log('GitHub ETag polling stopped');
     }
     
     /**
@@ -593,7 +593,7 @@ export default class ConfigSyncExtension extends Extension {
      */
     async _performSyncOperation(operationType, syncFunction, allowQueue = false) {
         if (!this._syncManager || !this._indicator) {
-            log(`Cannot perform sync operation: components not initialized`);
+            console.error(`Cannot perform sync operation: components not initialized`);
             return;
         }
         
@@ -608,13 +608,13 @@ export default class ConfigSyncExtension extends Extension {
             // Success
             this._indicator.stopSyncAnimation();
             this._indicator.updateStatus(`${operationType} complete: ` + new Date().toLocaleTimeString());
-            log(`Sync operation completed successfully: ${operationType}`);
+            console.log(`Sync operation completed successfully: ${operationType}`);
             
         } catch (error) {
             // Handle errors
             this._indicator.stopSyncAnimation();
             this._indicator.updateStatus(_(`${operationType} failed: `) + error.message);
-            log(`Sync operation failed: ${operationType} - ${error.message}`);
+            console.error(`Sync operation failed: ${operationType} - ${error.message}`);
             
         } finally {
             // Always update UI
@@ -629,7 +629,7 @@ export default class ConfigSyncExtension extends Extension {
      * Handle session login
      */
     _onLogin() {
-        log('Session login detected');
+        console.log('Session login detected');
         if (this._settings.get_boolean('auto-sync-on-login')) {
             this._performSyncOperation('login', async () => {
                 const result = await this._syncManager.syncFromGitHub();
@@ -647,7 +647,7 @@ export default class ConfigSyncExtension extends Extension {
      * Handle session logout
      */
     _onLogout() {
-        log('Session logout detected');
+        console.log('Session logout detected');
         if (this._settings.get_boolean('auto-sync-on-logout')) {
             this._performSyncOperation('logout', async () => {
                 await this._syncManager.syncToGitHub();
@@ -666,7 +666,7 @@ export default class ConfigSyncExtension extends Extension {
         
         this._settings.set_boolean('trigger-initial-sync', false);
         
-        log('Manual initial sync triggered from preferences');
+        console.log('Manual initial sync triggered from preferences');
         
         // Check credentials
         const token = this._settings.get_string('github-token');
@@ -742,7 +742,7 @@ export default class ConfigSyncExtension extends Extension {
         try {
             super.openPreferences();
         } catch (error) {
-            log(`Failed to open preferences: ${error.message}`);
+            console.error(`Failed to open preferences: ${error.message}`);
         }
     }
 }

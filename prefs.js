@@ -1,5 +1,5 @@
 /*
- * Gnoming Profiles extension for Gnome 45+
+ * Gnoming Profiles extension for Gnome 46+
  * Copyright 2025 Gavin Graham (gavindi)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -61,7 +61,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
      * Cleanup active timeouts and references
      */
     _cleanup() {
-        log('ConfigSyncPreferences: Starting cleanup');
+        console.log('ConfigSyncPreferences: Starting cleanup');
         
         // Clear all active timeouts
         for (const timeoutId of this._activeTimeouts) {
@@ -72,7 +72,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Clear settings reference
         this._settings = null;
         
-        log('ConfigSyncPreferences: Cleanup complete');
+        console.log('ConfigSyncPreferences: Cleanup complete');
     }
     
     /**

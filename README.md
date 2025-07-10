@@ -12,6 +12,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 - **ETag-Based GitHub Polling**: Efficient change detection with minimal bandwidth usage (v2.9+)
 - **Binary-Safe Wallpaper Syncing**: Corruption-free wallpaper sync with header validation (v3.0+)
 - **Enhanced Memory Management**: Proper timer and resource cleanup (v3.0+)
+- **Improved Logging**: Semantic console logging with console.log/warn/error for better debugging (v3.0.1+)
 - **High-Performance Batching**: Upload multiple files in single commits using GitHub Tree API (v2.9+)
 - **Request Queue Management**: Intelligent concurrency limits and queue management (v2.9+)
 - **Smart Caching**: SHA-based caching to avoid unnecessary uploads (v2.9+)
@@ -63,6 +64,7 @@ The extension features a completely modular architecture with clean separation o
 - **Performance**: Specialized modules optimize specific operations
 - **Extensibility**: New features can be added without affecting existing code
 - **Reliability**: Proper resource management and cleanup (v3.0+)
+- **Better Debugging**: Semantic logging with console.log/warn/error methods (v3.0.1+)
 
 See `lib/README.md` for detailed module documentation.
 
@@ -93,6 +95,34 @@ Version 3.0 introduces comprehensive timer and memory management improvements:
 - **Graceful Shutdown**: Extension can be safely disabled and re-enabled
 - **Error Recovery**: Better error handling during cleanup operations
 - **Performance**: Reduced memory footprint and better resource utilization
+
+## Improved Logging (v3.0.1+)
+
+Version 3.0.1 introduces semantic console logging for better debugging and monitoring:
+
+### Console Method Usage
+- **`console.log()`**: General information, status updates, and normal operations
+- **`console.warn()`**: Warnings, non-critical issues, and situations needing attention  
+- **`console.error()`**: Errors, failures, and critical problems
+
+### Benefits
+- **Better Filtering**: Enhanced filtering capabilities in debugging tools
+- **Semantic Clarity**: Clear distinction between information, warnings, and errors
+- **Standard API**: Uses standard JavaScript console API instead of GNOME-specific `log()`
+- **Improved Debugging**: Better integration with browser developer tools and system journals
+
+### Viewing Logs
+```bash
+# View all extension logs
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Gnoming Profiles"
+
+# Filter by log level (errors only)
+journalctl -f -o cat /usr/bin/gnome-shell | grep -E "(ERROR|error)"
+
+# Filter by component
+journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHub API"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
+```
 
 ## Setup
 
@@ -174,6 +204,11 @@ Version 3.0 introduces comprehensive timer and memory management improvements:
 - **Memory Management**: Comprehensive reference nullification
 - **Component Lifecycle**: Proper initialization and destruction
 - **Error Recovery**: Better cleanup during error conditions
+
+### **Improved Logging (v3.0.1+)**
+- **Semantic Logging**: Clear distinction between info, warnings, and errors
+- **Better Debugging**: Enhanced filtering and monitoring capabilities
+- **Standard API**: Uses JavaScript console methods for better tool integration
 
 ## Panel Menu Interface
 
@@ -322,6 +357,7 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 - **ETag Status Display**: Shows current ETag cache state and polling efficiency (v2.9+)
 - **Binary Validation**: Header validation and corruption detection for image files (v3.0+)
 - **Memory Management**: Comprehensive timer and resource cleanup (v3.0+)
+- **Semantic Logging**: Clear logging with console.log/warn/error methods (v3.0.1+)
 
 ## Panel Indicator States
 
@@ -416,6 +452,7 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - **ETag Efficiency**: Conditional requests minimize unnecessary data transfer (v2.9+)
 - **Binary-Safe Processing**: Wallpapers handled without corruption (v3.0+)
 - **Memory Management**: Comprehensive timer and resource cleanup (v3.0+)
+- **Semantic Logging**: Better debugging with console.log/warn/error (v3.0.1+)
 
 ## Troubleshooting
 
@@ -424,6 +461,10 @@ The modular architecture provides detailed logging from each component:
 ```bash
 # View all extension logs
 journalctl -f -o cat /usr/bin/gnome-shell | grep "Gnoming Profiles"
+
+# Filter by log level (v3.0.1+)
+journalctl -f -o cat /usr/bin/gnome-shell | grep -E "ERROR"  # Errors only
+journalctl -f -o cat /usr/bin/gnome-shell | grep -E "WARN"   # Warnings only
 
 # Filter by specific modules
 journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHub API"
@@ -488,6 +529,12 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 4. **Timeouts not clearing**: Fixed - comprehensive timeout tracking and cleanup
 5. **Resource exhaustion**: Improved - better component isolation and cleanup
 
+### Logging and Debugging Issues (v3.0.1+ IMPROVED)
+1. **Better log filtering**: Use console methods for clearer debugging
+2. **Semantic clarity**: Distinguish between info, warnings, and errors
+3. **Standard tools**: Works better with browser developer tools
+4. **Enhanced monitoring**: Better integration with system logging tools
+
 ### Excessive GitHub API Usage
 1. Enable ETag polling for dramatically reduced API usage (v2.9+)
 2. Increase the "Change Sync Delay" in preferences
@@ -520,7 +567,7 @@ When reporting issues with change monitoring, ETag polling, or wallpaper syncing
 - Extension version
 - Monitored files and schemas list
 - ETag polling status from panel menu
-- GNOME Shell logs showing the issue
+- GNOME Shell logs showing the issue (filtered by console level if possible - v3.0.1+)
 - For wallpaper issues: output of wallpaper validation diagnostic
 
 ## License
@@ -529,7 +576,22 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v3.0 (Current)
+### v3.0.1 (Current)
+- **IMPROVED: Semantic Console Logging**: Replaced all `log()` calls with appropriate `console.*` methods
+  - **`console.log()`**: General information, status updates, and normal operations
+  - **`console.warn()`**: Warnings, non-critical issues, and situations needing attention
+  - **`console.error()`**: Errors, failures, and critical problems
+- **ENHANCED: Debugging Experience**: Better log filtering and semantic clarity
+  - Enhanced filtering capabilities in debugging tools and system journals
+  - Clear distinction between information, warnings, and errors
+  - Better integration with browser developer tools
+  - Improved monitoring with standard JavaScript console API
+- **IMPROVED: Development Experience**: Better debugging capabilities for developers and users
+  - Easier troubleshooting with semantic log levels
+  - Enhanced compatibility with debugging tools
+  - Clearer error reporting and issue diagnosis
+
+### v3.0 (Enhanced Memory Management)
 - **CRITICAL FIX: Wallpaper Corruption Bug**: Complete rewrite of binary file handling
   - Fixed "Not a JPEG file: starts with 0xfd 0xfd" and similar corruption errors
   - Proper binary data handling throughout download process
