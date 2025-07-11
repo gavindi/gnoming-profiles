@@ -594,6 +594,11 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - HTTP sessions now properly terminated during extension disable/cleanup
   - Prevents potential resource leaks from unclosed network connections
   - Improved extension lifecycle management with proper resource cleanup
+- **FIXED: Timeout Management**: Enhanced timeout cleanup across all modules
+  - **SyncManager**: Added proper cleanup for monitoring restore timeout
+  - **Utils**: Enhanced debounce/throttle functions with `.cancel()` methods for cleanup
+  - Prevents timeout-related memory leaks during extension disable/cleanup
+  - Improved resource management and component lifecycle reliability
 
 ### v3.0 (Enhanced Memory Management)
 - **CRITICAL FIX: Wallpaper Corruption Bug**: Complete rewrite of binary file handling
