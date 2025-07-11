@@ -590,6 +590,10 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - Easier troubleshooting with semantic log levels
   - Enhanced compatibility with debugging tools
   - Clearer error reporting and issue diagnosis
+- **FIXED: HTTP Session Cleanup**: Added proper `abort()` call in GitHubAPI cleanup
+  - HTTP sessions now properly terminated during extension disable/cleanup
+  - Prevents potential resource leaks from unclosed network connections
+  - Improved extension lifecycle management with proper resource cleanup
 
 ### v3.0 (Enhanced Memory Management)
 - **CRITICAL FIX: Wallpaper Corruption Bug**: Complete rewrite of binary file handling
