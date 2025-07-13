@@ -665,7 +665,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.0 (with Binary-Safe Wallpapers)')
+            subtitle: _('3.0.2 (Code Cleanup & Maintenance)')
         });
         infoGroup.add(versionRow);
         
@@ -701,7 +701,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const featuresRow = new Adw.ActionRow({
             title: _('✨ What This Extension Does'),
-            subtitle: _('• Real-time file and settings monitoring\n• ETag-based polling for ultra-efficient remote sync\n• High-performance GitHub Tree API batching\n• Intelligent request queue management\n• Smart content caching and change detection\n• Multi-device configuration sharing\n• Binary-safe wallpaper syncing (v3.0)\n• Session-based auto-sync\n• Remote change detection\n• Private repository security\n• Improved timer and memory management')
+            subtitle: _('• Real-time file and settings monitoring\n• ETag-based polling for ultra-efficient remote sync\n• High-performance GitHub Tree API batching\n• Intelligent request queue management\n• Smart content caching and change detection\n• Multi-device configuration sharing\n• Binary-safe wallpaper syncing (v3.0)\n• Session-based auto-sync\n• Remote change detection\n• Private repository security\n• Enhanced memory management & code cleanup (v3.0.2)')
         });
         featuresGroup.add(featuresRow);
         
@@ -737,8 +737,20 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v302Row = new Adw.ActionRow({
+            title: _('v3.0.2 (Current - Code Cleanup)'),
+            subtitle: _('• REFACTOR: Removed 27 unused functions and methods for improved maintainability\n• IMPROVED: Utils class cleanup - Removed 15 unused utility functions\n• ENHANCED: Module cleanup - Removed unused diagnostic and debug methods\n• STREAMLINED: Better focus on production functionality\n• MAINTAINED: All core functionality preserved during cleanup')
+        });
+        changelogGroup.add(v302Row);
+        
+        const v301Row = new Adw.ActionRow({
+            title: _('v3.0.1 (Semantic Logging)'),
+            subtitle: _('• IMPROVED: Semantic Console Logging - Replaced log() with console.* methods\n• ENHANCED: Better debugging with console.log/warn/error distinction\n• FIXED: HTTP Session Cleanup - Proper abort() calls in GitHubAPI\n• FIXED: Enhanced timeout management across all modules')
+        });
+        changelogGroup.add(v301Row);
+        
         const v30Row = new Adw.ActionRow({
-            title: _('v3.0 (Current - Enhanced Memory Management)'),
+            title: _('v3.0 (Enhanced Memory Management)'),
             subtitle: _('• CRITICAL FIX: Wallpaper Corruption Bug - Complete rewrite of binary file handling\n• ENHANCED: Timer and Memory Management - Proper cleanup of all timeouts and references\n• IMPROVED: Resource Management - Better lifecycle management for all components\n• FIXED: Memory Leaks - Proper nullification of references and cleanup of event handlers\n• ADDED: Destroy Methods - All components now have proper cleanup methods\n• ENHANCED: Error Handling - Better error recovery and resource cleanup')
         });
         changelogGroup.add(v30Row);
