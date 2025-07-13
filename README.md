@@ -576,7 +576,29 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v3.0.1 (Current)
+### v3.0.2 (Current)
+- **REFACTOR: Code Cleanup**: Removed 27 unused functions and methods for improved maintainability
+  - **Utils Class**: Removed 15 unused utility functions including validation, formatting, and helper methods
+    - Removed: `expandPath()`, `generateContentHash()`, `isBinaryFile()`, `safeJsonParse()`, `safeJsonStringify()`
+    - Removed: `debounce()`, `throttle()`, `formatDuration()`, validation functions, and retry logic
+  - **Diagnostic Methods**: Removed 11 unused diagnostic and debug methods across modules
+    - **ETagManager**: Removed `getStats()` diagnostic method
+    - **FileMonitor**: Removed `isMonitoring()`, `getStatus()` diagnostic methods
+    - **SettingsMonitor**: Removed `getMonitoredSchemas()`, `getMonitorCount()`, `isMonitoring()`, `getStatus()`
+    - **WallpaperManager**: Removed `validateDownloadedWallpapers()`, `validateWallpapers()`, `debugWallpaperState()`, `getStatus()`
+  - **Status/Accessor Methods**: Removed 3 unused getter and utility methods
+    - **SyncManager**: Removed `isSyncing` getter, `queuedCount` getter
+    - **PanelIndicator**: Removed `getMenuItems()`, `addIconClass()`, `removeIconClass()`
+- **IMPROVED: Codebase Size**: Reduced overall codebase size by removing dead code
+  - All core functionality preserved - only unused diagnostic and utility code removed
+  - No files became empty - all modules retain their essential functionality
+  - Improved code maintainability with cleaner, more focused modules
+- **ENHANCED: Code Quality**: Better focus on production functionality
+  - Eliminated unused validation functions that weren't being called
+  - Removed debug methods that cluttered the public API
+  - Streamlined module interfaces to essential functionality only
+
+### v3.0.1
 - **IMPROVED: Semantic Console Logging**: Replaced all `log()` calls with appropriate `console.*` methods
   - **`console.log()`**: General information, status updates, and normal operations
   - **`console.warn()`**: Warnings, non-critical issues, and situations needing attention
