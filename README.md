@@ -589,6 +589,11 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
   - **Status/Accessor Methods**: Removed 3 unused getter and utility methods
     - **SyncManager**: Removed `isSyncing` getter, `queuedCount` getter
     - **PanelIndicator**: Removed `getMenuItems()`, `addIconClass()`, `removeIconClass()`
+- **FIXED: Sync Timeout Management**: Enhanced timeout handling in SyncManager restore operations
+  - **SyncManager**: Fixed potential timeout accumulation in `restoreBackup()` method
+  - Ensures existing monitoring restore timeout is cleared before creating new one
+  - Prevents multiple overlapping timeouts when restore operations are called repeatedly
+  - Improved resource cleanup and prevents potential memory leaks from timeout accumulation
 - **IMPROVED: Codebase Size**: Reduced overall codebase size by removing dead code
   - All core functionality preserved - only unused diagnostic and utility code removed
   - No files became empty - all modules retain their essential functionality
