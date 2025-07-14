@@ -609,20 +609,20 @@ export default class ConfigSyncExtension extends Extension {
         // Update UI
         this._indicator.updateSyncItemSensitivity(false);
         this._indicator.startSyncAnimation();
-        this._indicator.updateStatus(_('Syncing: ') + operationType);
+        this._indicator.updateStatus(_(`Syncing: ${operationType}`));
         
         try {
             await this._syncManager.performSyncOperation(operationType, syncFunction, allowQueue);
             
             // Success
             this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(`${operationType} complete: ` + new Date().toLocaleTimeString());
+            this._indicator.updateStatus(`${operationType} complete: ${new Date().toLocaleTimeString()}`);
             console.log(`Sync operation completed successfully: ${operationType}`);
             
         } catch (error) {
             // Handle errors
             this._indicator.stopSyncAnimation();
-            this._indicator.updateStatus(_(`${operationType} failed: `) + error.message);
+            this._indicator.updateStatus(_(`${operationType} failed: ${error.message}`));
             console.error(`Sync operation failed: ${operationType} - ${error.message}`);
             
         } finally {
