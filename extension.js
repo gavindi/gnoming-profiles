@@ -35,6 +35,15 @@ import { PanelIndicator } from './lib/PanelIndicator.js';
  * Main extension class that orchestrates all components
  */
 export default class ConfigSyncExtension extends Extension {
+    // Timing constants
+    static MILLISECONDS_PER_SECOND = 1000;
+    static SECONDS_PER_MINUTE = 60;
+    static STATUS_UPDATE_INTERVAL_MS = 2000;
+    
+    // HTTP status codes
+    static HTTP_NOT_FOUND = 404;
+    static HTTP_NOT_MODIFIED = 304;
+    
     constructor(metadata) {
         super(metadata);
         
@@ -325,7 +334,7 @@ export default class ConfigSyncExtension extends Extension {
         }
         
         this._pendingChanges = true;
-        const debounceDelay = this._settings.get_int('change-sync-delay') * 1000;
+        const debounceDelay = this._settings.get_int('change-sync-delay') * ConfigSyncExtension.MILLISECONDS_PER_SECOND;
         
         this._debounceTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, debounceDelay, () => {
             if (this._pendingChanges) {
@@ -384,7 +393,7 @@ export default class ConfigSyncExtension extends Extension {
         console.log(`GitHub ETag polling: Starting for ${username}/${repo} every ${intervalMinutes} minutes`);
         
         // Start polling
-        this._scheduleNextPoll(intervalMinutes * 60 * 1000);
+        this._scheduleNextPoll(intervalMinutes * ConfigSyncExtension.SECONDS_PER_MINUTE * ConfigSyncExtension.MILLISECONDS_PER_SECOND);
         this._indicator.updatePollingStatus(true, intervalMinutes);
     }
     
@@ -562,7 +571,7 @@ export default class ConfigSyncExtension extends Extension {
         // Clear any existing timer first
         this._stopStatusUpdateTimer();
         
-        this._statusUpdateTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+        this._statusUpdateTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ConfigSyncExtension.STATUS_UPDATE_INTERVAL_MS, () => {
             if (this._indicator && this._requestQueue && this._etagManager) {
                 // Update queue status
                 this._indicator.updateQueueStatus(

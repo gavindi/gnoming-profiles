@@ -23,6 +23,12 @@ import GLib from 'gi://GLib';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class ConfigSyncPreferences extends ExtensionPreferences {
+    // UI constants
+    static BUTTON_RENABLE_DELAY_MS = 3000;
+    static TEXT_VIEW_HEIGHT_PX = 120;
+    static MAX_SYNC_DELAY_SECONDS = 300;
+    static MAX_POLLING_INTERVAL_MINUTES = 1440;
+    
     constructor(metadata) {
         super(metadata);
         
@@ -200,7 +206,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Seconds to wait after a change before syncing (prevents excessive syncing)'),
             adjustment: new Gtk.Adjustment({
                 lower: 1,
-                upper: 300,
+                upper: ConfigSyncPreferences.MAX_SYNC_DELAY_SECONDS,
                 step_increment: 1,
                 page_increment: 10,
                 value: settings.get_int('change-sync-delay')
@@ -260,7 +266,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('How often to check GitHub for changes (in minutes). ETags make frequent polling efficient.'),
             adjustment: new Gtk.Adjustment({
                 lower: 1,
-                upper: 1440, // Max 24 hours
+                upper: ConfigSyncPreferences.MAX_POLLING_INTERVAL_MINUTES, // Max 24 hours
                 step_increment: 1,
                 page_increment: 10,
                 value: settings.get_int('github-polling-interval')
@@ -345,7 +351,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_boolean('trigger-initial-sync', true);
             
             // Re-enable button after a delay with proper timeout management
-            const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+            const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ConfigSyncPreferences.BUTTON_RENABLE_DELAY_MS, () => {
                 // Check if button still exists and preferences hasn't been destroyed
                 if (initButton && !initButton.is_destroyed && initButton.sensitive !== undefined) {
                     initButton.sensitive = true;
@@ -428,7 +434,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             buffer: schemasBuffer,
             wrap_mode: Gtk.WrapMode.WORD,
             accepts_tab: false,
-            height_request: 120,
+            height_request: ConfigSyncPreferences.TEXT_VIEW_HEIGHT_PX,
             margin_top: 12,
             margin_bottom: 12,
             margin_start: 12,
@@ -438,7 +444,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const schemasScrolled = new Gtk.ScrolledWindow({
             child: schemasView,
-            height_request: 120,
+            height_request: ConfigSyncPreferences.TEXT_VIEW_HEIGHT_PX,
             hscrollbar_policy: Gtk.PolicyType.NEVER,
             vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
             margin_top: 6,
@@ -498,7 +504,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             buffer: filesBuffer,
             wrap_mode: Gtk.WrapMode.WORD,
             accepts_tab: false,
-            height_request: 120,
+            height_request: ConfigSyncPreferences.TEXT_VIEW_HEIGHT_PX,
             margin_top: 12,
             margin_bottom: 12,
             margin_start: 12,
@@ -508,7 +514,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const filesScrolled = new Gtk.ScrolledWindow({
             child: filesView,
-            height_request: 120,
+            height_request: ConfigSyncPreferences.TEXT_VIEW_HEIGHT_PX,
             hscrollbar_policy: Gtk.PolicyType.NEVER,
             vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
             margin_top: 6,
