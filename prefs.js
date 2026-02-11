@@ -671,7 +671,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.1')
+            subtitle: _('3.0.4')
         });
         infoGroup.add(versionRow);
         
@@ -743,8 +743,20 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v304Row = new Adw.ActionRow({
+            title: _('v3.0.4 (Current - Default Branch Detection)'),
+            subtitle: _('• FIXED: Auto-detect repository default branch instead of hardcoding \"main\"\\n• NEW: Added getDefaultBranch() to GitHubAPI with per-session caching')
+        });
+        changelogGroup.add(v304Row);
+
+        const v303Row = new Adw.ActionRow({
+            title: _('v3.0.3 (GNOME 49 Support)'),
+            subtitle: _('• NEW: Added GNOME Shell 49 support')
+        });
+        changelogGroup.add(v303Row);
+
         const v302Row = new Adw.ActionRow({
-            title: _('v3.0.2 (Current - Code Cleanup)'),
+            title: _('v3.0.2 (Code Cleanup)'),
             subtitle: _('• REFACTOR: Removed 27 unused functions and methods for improved maintainability\n• IMPROVED: Utils class cleanup - Removed 15 unused utility functions\n• ENHANCED: Module cleanup - Removed unused diagnostic and debug methods\n• STREAMLINED: Better focus on production functionality\n• MAINTAINED: All core functionality preserved during cleanup')
         });
         changelogGroup.add(v302Row);
