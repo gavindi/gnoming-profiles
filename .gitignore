@@ -1,0 +1,21 @@
+# IDE / Editor
+*.code-workspace
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# GNOME Shell extension build artifacts
+*.zip
+*.shell-extension.zip
+
+# Compiled GSettings schemas
+schemas/gschemas.compiled
+
+# Node (if using build tools)
+node_modules/
+
+# Logs
+*.log
