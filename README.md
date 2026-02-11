@@ -576,7 +576,16 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-### v3.0.2 (Current)
+### v3.0.4 (Current)
+- **FIXED: Default Branch Detection**: Auto-detect repository default branch instead of hardcoding "main"
+  - Repos using "master" or any other default branch name now work correctly
+  - Added `getDefaultBranch()` method to GitHubAPI with per-session caching
+  - No extra API overhead — branch name is fetched once and cached for the session
+
+### v3.0.3
+- **ADDED: GNOME Shell 49 support**
+
+### v3.0.2
 - **REFACTOR: Code Cleanup**: Removed 27 unused functions and methods for improved maintainability
   - **Utils Class**: Removed 15 unused utility functions including validation, formatting, and helper methods
     - Removed: `expandPath()`, `generateContentHash()`, `isBinaryFile()`, `safeJsonParse()`, `safeJsonStringify()`
