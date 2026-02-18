@@ -4,29 +4,29 @@
 # Gnoming Profiles Extension
 ![screenshot](https://github.com/gavindi/gnoming-profiles/blob/master/media/GnomingProfilesScreenshot.png?raw=true)
 
-A GNOME Shell extension that automatically syncs your gsettings and configuration files to a private GitHub repository with real-time change monitoring, high-performance batch uploading, intelligent ETag-based polling, binary-safe wallpaper syncing, enhanced timer and memory management, and a modular architecture for enhanced maintainability.
+A GNOME Shell extension that automatically syncs your gsettings and configuration files to GitHub, Nextcloud, or Google Drive with real-time change monitoring, high-performance batch uploading, intelligent polling, binary-safe wallpaper syncing, and a modular architecture with pluggable storage backends.
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/P5P21M7MBS)
 
 ## Features
 
+- **Multiple Storage Backends**: Sync to GitHub, Nextcloud/WebDAV, or Google Drive (v3.3+)
+- **Live Provider Switching**: Change storage backend without restarting the extension
+- **Google Drive with OAuth2**: Secure PKCE authorization flow with your own Google Cloud credentials (v3.3.2+)
 - **Automatic Sync**: Backup on logout, restore on login
 - **Real-time Change Monitoring**: Automatically sync when files or settings change
-- **ETag-Based GitHub Polling**: Efficient change detection with minimal bandwidth usage (v2.9+)
-- **Binary-Safe Wallpaper Syncing**: Corruption-free wallpaper sync with header validation (v3.0+)
-- **Enhanced Memory Management**: Proper timer and resource cleanup (v3.0+)
-- **Improved Logging**: Semantic console logging with console.log/warn/error for better debugging (v3.0.1+)
-- **High-Performance Batching**: Upload multiple files in single commits using GitHub Tree API (v2.9+)
-- **Request Queue Management**: Intelligent concurrency limits and queue management (v2.9+)
-- **Smart Caching**: SHA-based caching to avoid unnecessary uploads (v2.9+)
-- **Modular Architecture**: Clean separation of concerns for better maintainability (v2.9+)
+- **Remote Polling**: Efficient change detection with ETag or modifiedTime-based polling
+- **Binary-Safe Wallpaper Syncing**: Corruption-free wallpaper sync with header validation
+- **High-Performance Batching**: Upload multiple files atomically (GitHub Tree API, Nextcloud WebDAV, Google Drive multipart)
+- **Request Queue Management**: Intelligent concurrency limits and queue management
+- **Smart Caching**: SHA-based caching to avoid unnecessary uploads
+- **Modular Architecture**: Clean separation of concerns with pluggable StorageProvider backends
 - **GSettings Support**: Monitor and sync any GSettings schema in real-time
 - **Multitasking & Workspaces**: Full sync of GNOME workspace and window management settings
 - **Ubuntu Desktop Support**: Automatic sync of Ubuntu-specific desktop extensions and settings
 - **Wallpaper Sync**: Optionally sync desktop and lock screen wallpapers with binary integrity
 - **File Monitoring**: Watch configuration files for changes and sync automatically
 - **Smart Debouncing**: Configurable delay to prevent excessive syncing
-- **Private Repository**: Uses GitHub private repositories for security
 - **Manual Sync**: Trigger sync manually from the panel indicator
 - **Visual Feedback**: Panel indicator shows sync status and monitoring state
 - **Organized Menu**: Clean, intuitive panel menu with logical sections
@@ -47,11 +47,17 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 
 The extension features a completely modular architecture with clean separation of concerns:
 
+### Storage Providers
+- **StorageProvider**: Abstract base class defining the storage backend contract
+- **GitHubProvider**: GitHub backend — Tree API batching, Content API, ETag polling
+- **NextcloudProvider**: Nextcloud/WebDAV backend — PUT/GET/PROPFIND/MKCOL, ETag polling
+- **GoogleDriveProvider**: Google Drive backend — OAuth2, path-to-ID resolution, multipart upload, modifiedTime polling
+
 ### Core Modules
-- **RequestQueue**: Manages GitHub API concurrency and rate limiting
-- **ETagManager**: Handles ETag caching for bandwidth-efficient polling  
-- **GitHubAPI**: GitHub integration with ETag support, Tree API batching, and binary-safe downloads (v3.0+)
-- **SyncManager**: Coordinates all backup/restore operations
+- **RequestQueue**: Manages API concurrency and rate limiting
+- **ETagManager**: Handles ETag/modifiedTime caching for bandwidth-efficient polling
+- **GitHubAPI**: GitHub REST API client with ETag support, Tree API batching, and binary-safe downloads
+- **SyncManager**: Coordinates all backup/restore operations across providers
 
 ### Monitoring Modules
 - **FileMonitor**: Real-time file system change detection
@@ -123,21 +129,38 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Gnoming Profiles"
 journalctl -f -o cat /usr/bin/gnome-shell | grep -E "(ERROR|error)"
 
 # Filter by component
-journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHub API"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHubProvider"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "NextcloudProvider"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "GoogleDriveProvider"
 journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ```
 
 ## Setup
 
+Open extension preferences, select your storage provider, and configure its credentials:
+
+### GitHub
 1. Create a private GitHub repository for your configs
 2. Generate a Personal Access Token with `repo` permissions
-3. Open extension preferences and configure:
-   - GitHub username
-   - Repository name
-   - Personal access token
-   - Which GSettings schemas to monitor and sync
-   - Which files to monitor and sync
-   - Change monitoring settings
+3. Enter your GitHub username, repository name, and token
+
+### Nextcloud / WebDAV
+1. Generate an App Password in your Nextcloud security settings
+2. Enter your Nextcloud server URL, username, and app password
+3. Optionally change the sync folder name (default: `.gnoming-profiles`)
+
+### Google Drive
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) > APIs & Services > Credentials
+2. Create an OAuth2 Client ID (Desktop app type)
+3. Add `http://127.0.0.1:39587` as an authorized redirect URI
+4. Enter your Client ID and Client Secret in the extension preferences
+5. Click **Authorize** — this opens your browser for Google login
+6. Optionally change the Drive folder name (default: `.gnoming-profiles`)
+
+### Common Settings
+- Which GSettings schemas to monitor and sync
+- Which files to monitor and sync
+- Change monitoring and polling settings
 
 ## Sync Modes
 
@@ -151,12 +174,12 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 - **Smart Debouncing**: Configurable delay (1-300 seconds) to prevent excessive syncing
 - **Sync Direction**: Choose between backup-only or bidirectional sync for changes
 
-### ETag-Based GitHub Polling (v2.9+)
-- **Efficient Remote Change Detection**: Uses HTTP ETags for bandwidth-efficient polling
+### Remote Polling
+- **Efficient Remote Change Detection**: Uses ETags (GitHub/Nextcloud) or modifiedTime (Google Drive)
 - **304 Not Modified Support**: Only processes data when changes actually exist
-- **Reduced API Usage**: Dramatically reduces GitHub API rate limit consumption
-- **Smart Caching**: ETags cached in memory for the extension session
-- **Configurable Interval**: Poll every 1-1440 minutes (default: 15 minutes)
+- **Reduced API Usage**: Conditional requests minimise bandwidth and rate limit consumption
+- **Smart Caching**: ETags/timestamps cached in memory for the extension session
+- **Configurable Interval**: Poll every 1-1440 minutes (default: 5 minutes)
 - **Auto-sync Remote**: Automatically download and apply remote changes
 - **Manual Pull**: Option to manually pull remote changes from the panel menu
 
@@ -164,23 +187,23 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 - Click the panel indicator and select "Sync Now"
 - Performs both backup and restore operations
 
-## Performance Features (v2.9+)
+## Performance Features
 
-### **ETag-Based Polling**
-- **Conditional HTTP Requests**: Uses If-None-Match headers for efficient polling
-- **304 Not Modified Responses**: GitHub returns minimal data when no changes exist
+### **Conditional Polling**
+- **ETag-Based**: GitHub and Nextcloud use If-None-Match headers for 304 responses
+- **modifiedTime-Based**: Google Drive compares file timestamps for change detection
 - **Bandwidth Savings**: Up to 95% reduction in data transfer during polling
-- **Rate Limit Efficiency**: Conditional requests often don't count against API limits
-- **Real-time Status**: Panel menu shows ETag polling status and cache state
+- **Rate Limit Efficiency**: Conditional requests minimise API rate limit consumption
+- **Real-time Status**: Panel menu shows polling status and cache state
 
-### **GitHub Tree API Batching**
-- **Single Commit Uploads**: All file changes are batched into a single commit
-- **Reduced API Calls**: Up to 90% fewer GitHub API requests
-- **Atomic Operations**: All changes succeed or fail together
-- **Better Git History**: Clean commit history with meaningful batch messages
+### **Batch Uploading**
+- **GitHub**: Tree API batches all file changes into a single atomic commit
+- **Nextcloud**: Sequential WebDAV PUT with automatic directory creation
+- **Google Drive**: Multipart upload with path-to-ID resolution and folder caching
+- **Atomic Operations**: All changes succeed or fail together (GitHub)
 
 ### **Request Queue Management**
-- **Concurrency Control**: Maximum 3 simultaneous GitHub API requests
+- **Concurrency Control**: Maximum 3 simultaneous API requests
 - **Queue Status**: Real-time display of pending and active requests in panel menu
 - **Error Isolation**: Failed requests don't block the entire queue
 - **Resource Management**: Prevents API rate limiting and connection exhaustion
@@ -188,30 +211,14 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ### **Smart Caching System**
 - **Content Hash Caching**: SHA-256 hashing to detect actual content changes
 - **Skip Unchanged Files**: Only upload files that have actually changed
-- **Session Persistence**: Cache persists during extension lifetime
-- **Memory Efficiency**: Reduced memory usage for large configuration sets
+- **Path-to-ID Cache**: Google Drive caches folder/file ID mappings to reduce API calls
+- **Session Persistence**: All caches persist during extension lifetime
 
-### **HTTP Session Reuse**
-- **Connection Pooling**: Reuses HTTP connections for better performance
-- **Reduced Latency**: Faster subsequent requests to GitHub API
-- **Resource Efficiency**: Lower network overhead and connection setup time
-
-### **Binary-Safe Downloads (v3.0+)**
-- **Proper Binary Handling**: Wallpapers downloaded without corruption
+### **Binary-Safe Downloads**
+- **Proper Binary Handling**: Wallpapers downloaded without corruption across all providers
 - **Header Validation**: JPEG/PNG header verification to detect corruption
 - **File Integrity**: Binary data preserved throughout download process
 - **Error Detection**: Early detection of corrupted downloads
-
-### **Enhanced Resource Management (v3.0+)**
-- **Timer Cleanup**: All timeouts properly tracked and removed
-- **Memory Management**: Comprehensive reference nullification
-- **Component Lifecycle**: Proper initialization and destruction
-- **Error Recovery**: Better cleanup during error conditions
-
-### **Improved Logging (v3.0.1+)**
-- **Semantic Logging**: Clear distinction between info, warnings, and errors
-- **Better Debugging**: Enhanced filtering and monitoring capabilities
-- **Standard API**: Uses JavaScript console methods for better tool integration
 
 ## Panel Menu Interface
 
@@ -221,9 +228,9 @@ The extension features a clean, organized panel menu with logical sections:
 2. **Status Section**: 
    - Last sync timestamp
    - Change monitoring status (files/schemas count)
-   - GitHub polling status (interval) with ETag indicator
+   - Remote polling status (interval) with ETag/modifiedTime indicator
    - Request queue status (pending/active requests)
-   - ETag polling status (cached/changes detected/304 responses)
+   - Polling status (cached/changes detected/304 responses)
    - Pull Remote Changes (when available)
 3. **Action Section**:
    - Sync Now
@@ -274,12 +281,12 @@ Wallpaper syncing is **disabled by default** but can be enabled in preferences. 
 ### **What Gets Synced**
 - **Desktop wallpaper**: From `org.gnome.desktop.background` settings
 - **Lock screen wallpaper**: From `org.gnome.desktop.screensaver` settings  
-- **Wallpaper files**: The actual image files are uploaded to GitHub
+- **Wallpaper files**: The actual image files are uploaded to your storage provider
 - **Dark mode wallpapers**: Separate wallpapers for light/dark themes
 
 ### **How It Works**
 1. **Detection**: Extension reads wallpaper paths from GSettings
-2. **Backup**: Wallpaper image files are encoded and uploaded to GitHub (batched in v2.9+)
+2. **Backup**: Wallpaper image files are encoded and uploaded to your storage provider
 3. **Restore**: Files are downloaded to `~/.local/share/gnoming-profiles/wallpapers/`
 4. **Update**: GSettings are updated to point to the restored wallpaper files
 
@@ -315,8 +322,8 @@ These settings ensure your complete desktop workflow is preserved across devices
 
 ### **Considerations**
 - **File Size**: Wallpaper files can be large (1-10MB+ each)
-- **Sync Time**: Large wallpapers may increase sync duration (mitigated by batching in v2.9+)
-- **Storage**: Uses more GitHub repository storage space
+- **Sync Time**: Large wallpapers may increase sync duration (mitigated by batching)
+- **Storage**: Uses more remote storage space
 - **Bandwidth**: Higher data usage during sync
 
 ### **Supported Formats**
@@ -332,48 +339,47 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 ### Change Monitoring Settings
 - **Auto-sync on Changes**: Enable/disable real-time change monitoring
 - **Change Sync Delay**: Debounce delay in seconds (default: 5 seconds)
-- **Sync Direction**: 
-  - Backup Only: Only upload changes to GitHub
-  - Bidirectional: Upload changes and download any updates from GitHub
+- **Sync Direction**:
+  - Backup Only: Only upload changes to remote
+  - Bidirectional: Upload changes and download any updates from remote
 
 ### Wallpaper Syncing Settings
 - **Sync Wallpapers**: Enable/disable wallpaper image syncing (default: disabled)
-- **Binary Integrity**: Automatic corruption detection and validation (v3.0+)
+- **Binary Integrity**: Automatic corruption detection and validation
 - **Automatic Schema Addition**: Wallpaper schemas added automatically when enabled
 - **Storage Location**: Wallpapers restored to `~/.local/share/gnoming-profiles/wallpapers/`
-- **Repository Storage**: Wallpapers uploaded to `wallpapers/` folder in GitHub repo
+- **Remote Storage**: Wallpapers uploaded to `wallpapers/` folder in remote storage
 
-### ETag-Based GitHub Polling Settings (v2.9+)
-- **Enable GitHub Polling**: Turn on/off ETag-based remote change detection
-- **Polling Interval**: How often to check GitHub (1-1440 minutes, default: 15)
+### Remote Polling Settings
+- **Enable Remote Polling**: Turn on/off remote change detection
+- **Polling Interval**: How often to check remote (1-1440 minutes, default: 5)
 - **Auto-sync Remote Changes**: Automatically apply remote changes when detected
 - **Manual Pull Option**: Always available in panel menu when remote changes detected
-- **ETag Caching**: Automatic caching of ETags for efficient conditional requests
-- **304 Handling**: Intelligent handling of "Not Modified" responses
+- **ETag/modifiedTime Caching**: Automatic caching for efficient conditional requests
 
 ### Advanced Features
 - **File Type Detection**: Automatically skips binary files
 - **Directory Creation**: Creates parent directories as needed when restoring
 - **Error Recovery**: Robust error handling with detailed logging
 - **Visual Indicators**: Panel icon changes to show sync and monitoring status
-- **Request Queue Monitoring**: Real-time visibility into GitHub API request status (v2.9+)
-- **ETag Status Display**: Shows current ETag cache state and polling efficiency (v2.9+)
-- **Binary Validation**: Header validation and corruption detection for image files (v3.0+)
-- **Memory Management**: Comprehensive timer and resource cleanup (v3.0+)
-- **Semantic Logging**: Clear logging with console.log/warn/error methods (v3.0.1+)
+- **Request Queue Monitoring**: Real-time visibility into API request status
+- **Polling Status Display**: Shows current cache state and polling efficiency
+- **Binary Validation**: Header validation and corruption detection for image files
+- **Memory Management**: Comprehensive timer and resource cleanup
+- **Semantic Logging**: Clear logging with console.log/warn/error methods
 
 ## Panel Indicator States
 
 - **Default**: Static user icon (monitoring/polling disabled or no activity)
-- **Monitoring Active**: Subtle green glow (change monitoring or GitHub polling enabled)
+- **Monitoring Active**: Subtle green glow (change monitoring or remote polling enabled)
 - **Syncing**: Animated blue pulsing with rotating icons
 - **Change Detected**: Brief orange flash when local changes are detected
 - **Remote Changes**: Purple pulsing when remote changes are available (shows "Pull Changes" menu item)
 - **ETag Cached**: Indicates efficient polling with cached ETags
 
-## Repository Structure
+## Remote Storage Structure
 
-In your GitHub repository, you'll find:
+Regardless of provider (GitHub repo, Nextcloud folder, or Google Drive folder), your synced data is organised as:
 
 ```
 config-backup.json          # GSettings backup in JSON format (wallpapers excluded)
@@ -386,20 +392,21 @@ files/
         gtk-3.0/
           settings.ini
 wallpapers/                 # Optional: Only if wallpaper sync enabled
-  my-wallpaper.jpg          # Desktop wallpaper files (binary-safe v3.0+)
+  my-wallpaper.jpg          # Desktop wallpaper files
   lock-screen.png           # Lock screen wallpaper files
 ```
 
 ## Security Features
 
-- **Private Repositories**: Only works with private GitHub repositories
-- **Encrypted Storage**: Personal access tokens stored encrypted by GNOME
+- **Private Storage**: GitHub uses private repos; Nextcloud and Google Drive use your own account
+- **Encrypted Credential Storage**: Tokens and passwords stored encrypted by GNOME GSettings
+- **Minimal Permissions**: GitHub uses `repo` scope; Google Drive uses `drive.file` scope (app-created files only)
+- **OAuth2 Best Practices**: Google Drive uses PKCE (Proof Key for Code Exchange) for secure authorization
 - **Selective Sync**: Only configured schemas and files are monitored and synced
 - **Text-only**: Binary files are automatically detected and skipped (except wallpapers)
-- **Permission Control**: Uses minimal GitHub API permissions (repo scope only)
-- **ETag Security**: ETags stored in memory only (not persisted to disk)
-- **Binary Integrity**: Wallpaper files validated for corruption (v3.0+)
-- **Resource Security**: Proper cleanup prevents information leakage (v3.0+)
+- **Polling Cache Security**: ETags and timestamps stored in memory only (not persisted to disk)
+- **Binary Integrity**: Wallpaper files validated for corruption
+- **Resource Security**: Proper cleanup of tokens, sessions, and caches on extension disable
 
 ## Change Monitoring Details
 
@@ -421,41 +428,31 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 - Batch processing of multiple simultaneous changes
 - Visual feedback when changes are detected and queued
 
-## ETag Polling Details (v2.9+)
+## Remote Polling Details
 
-### How ETag Polling Works
-- **Initial Request**: Extension makes normal GitHub API request, stores returned ETag
-- **Subsequent Requests**: Include `If-None-Match: <etag>` header
-- **304 Response**: GitHub returns "Not Modified" when content unchanged (minimal data transfer)
-- **Change Detection**: Only when ETag differs does GitHub return full data
-- **Cache Management**: ETags stored in memory during extension session
+### How Polling Works
+Each provider uses the most efficient change detection mechanism available:
+- **GitHub / Nextcloud**: ETag-based conditional requests (`If-None-Match` header → 304 Not Modified)
+- **Google Drive**: `modifiedTime` comparison on `config-backup.json`
 
-### Benefits of ETag Polling
+### Benefits
 - **Bandwidth Efficiency**: Up to 95% reduction in data transfer during polling
-- **Rate Limit Savings**: Conditional requests often don't count against API limits
-- **Faster Responses**: 304 responses are much quicker than full data transfers
-- **Resource Conservation**: Reduces server load and network traffic
+- **Rate Limit Savings**: Conditional requests minimise API rate limit consumption
+- **Faster Responses**: 304 / "no change" responses are much quicker than full data transfers
 - **Battery Life**: Lower network activity improves battery life on laptops
-
-### ETag Status Indicators
-- **Not Cached**: First poll or no ETag available
-- **Cached**: ETag stored, ready for efficient polling
-- **No Changes (304)**: Last poll returned "Not Modified"
-- **Changes Detected**: Content changed, new ETag cached
 
 ## Performance Considerations
 
 - **Minimal Resource Usage**: Uses efficient GNOME APIs for monitoring
 - **Debounced Syncing**: Prevents excessive network requests
 - **Selective Monitoring**: Only watches explicitly configured items
-- **Automatic Cleanup**: All monitors properly cleaned up when extension disabled (v3.0+)
-- **Batched Operations**: Multiple file changes uploaded in single commits (v2.9+)
-- **Request Queuing**: Intelligent concurrency control prevents API overload (v2.9+)
-- **Smart Caching**: Content-based change detection avoids unnecessary uploads (v2.9+)
-- **ETag Efficiency**: Conditional requests minimize unnecessary data transfer (v2.9+)
-- **Binary-Safe Processing**: Wallpapers handled without corruption (v3.0+)
-- **Memory Management**: Comprehensive timer and resource cleanup (v3.0+)
-- **Semantic Logging**: Better debugging with console.log/warn/error (v3.0.1+)
+- **Automatic Cleanup**: All monitors properly cleaned up when extension disabled
+- **Batched Operations**: Multiple file changes uploaded atomically
+- **Request Queuing**: Intelligent concurrency control prevents API overload
+- **Smart Caching**: Content-based change detection avoids unnecessary uploads
+- **Conditional Polling**: ETag / modifiedTime requests minimise unnecessary data transfer
+- **Binary-Safe Processing**: Wallpapers handled without corruption across all providers
+- **Path-to-ID Caching**: Google Drive file ID lookups are cached to reduce API calls
 
 ## Troubleshooting
 
@@ -470,9 +467,10 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep -E "ERROR"  # Errors only
 journalctl -f -o cat /usr/bin/gnome-shell | grep -E "WARN"   # Warnings only
 
 # Filter by specific modules
-journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHub API"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "GitHubProvider"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "NextcloudProvider"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "GoogleDriveProvider"
 journalctl -f -o cat /usr/bin/gnome-shell | grep "Sync Manager"
-journalctl -f -o cat /usr/bin/gnome-shell | grep "ETag Manager"
 journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ```
 
@@ -482,81 +480,55 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 3. Check the GNOME Shell logs: `journalctl -f -o cat /usr/bin/gnome-shell`
 4. Try toggling change monitoring off and on in preferences
 
-### ETag Polling Issues (v2.9+)
-1. Check the "ETag polling" status in the panel menu
-2. "Not cached" indicates first poll or ETag unavailable
-3. "No changes (304)" shows efficient polling is working
-4. High polling frequency may still hit rate limits despite ETags
-5. Check network connectivity if ETag status shows errors
+### Remote Polling Issues
+1. Check the polling status in the panel menu
+2. Verify credentials are properly configured for your chosen provider
+3. Ensure polling is enabled in preferences
+4. Check network connectivity to your storage provider
+5. Review polling interval (too frequent may hit rate limits on GitHub)
+6. For Google Drive: ensure your OAuth2 authorization is valid (re-authorize if needed)
 
-### GitHub Polling Issues
-1. Check that GitHub credentials are properly configured
-2. Ensure repository exists and is accessible with your token
-3. Verify polling is enabled in preferences
-4. Check network connectivity to GitHub
-5. Review polling interval (too frequent may hit rate limits)
-6. Look for "GitHub polling" status in panel menu
-
-### Request Queue Issues (v2.9+)
-1. Check the "Request queue" status in the panel menu
-2. High pending counts may indicate network issues
-3. Multiple active requests show the queue is working properly
-4. If queue appears stuck, try disabling/re-enabling the extension
+### Google Drive Authorization Issues
+1. **"Unable to connect" in browser**: Ensure no other application is using port 39587
+2. **Authorization timeout**: The loopback server times out after 120 seconds — try again
+3. **"invalid_grant" errors**: Your refresh token has expired — click "Re-authorize" in preferences
+4. **Credentials not working**: Verify Client ID and Secret are correct; ensure the OAuth consent screen is configured for Desktop app type
 
 ### Empty config-backup.json or 0 Schemas Detected
 1. Use the **"Initialize Sync"** button in Preferences → Sync tab
 2. This will force creation of an initial backup with all available schemas
 3. Check the logs to see which schemas are being detected
-4. Verify GitHub credentials are configured before initializing
+4. Verify provider credentials are configured before initializing
 5. Check panel menu to see schema count after initialization
 
 ### Remote Changes Not Detected
-1. Verify changes were actually committed to the repository
+1. Verify changes were actually made in remote storage
 2. Check that config files (config-backup.json or files/*) were modified
 3. Ensure polling interval has elapsed since the change
 4. Try manual "Sync Now" to test connectivity
-5. Check ETag status - "Not cached" may indicate polling issues
+5. For GitHub/Nextcloud: check ETag status — "Not cached" may indicate polling issues
+6. For Google Drive: check modifiedTime polling status
 
-### Wallpaper Corruption Issues (v3.0+ FIXED)
-1. **Corrupted wallpapers**: Fixed in v3.0 with proper binary handling
-2. **"Not a JPEG file" errors**: Fixed - wallpapers now download without corruption
-3. **Invalid headers**: v3.0 validates JPEG/PNG headers and reports corruption
-4. **File integrity**: Downloaded files are now verified for correctness
-5. **Empty files**: Zero-byte wallpaper files are automatically skipped and reported
-6. **Large files**: Files over 50MB are automatically skipped; over 10MB show warnings
-
-### Memory and Performance Issues (v3.0+ IMPROVED)
-1. **Memory leaks**: Fixed - all timers and references are properly cleaned up
-2. **High memory usage**: Improved - better resource management and cleanup
-3. **Extension won't disable**: Fixed - proper lifecycle management
-4. **Timeouts not clearing**: Fixed - comprehensive timeout tracking and cleanup
-5. **Resource exhaustion**: Improved - better component isolation and cleanup
-
-### Logging and Debugging Issues (v3.0.1+ IMPROVED)
-1. **Better log filtering**: Use console methods for clearer debugging
-2. **Semantic clarity**: Distinguish between info, warnings, and errors
-3. **Standard tools**: Works better with browser developer tools
-4. **Enhanced monitoring**: Better integration with system logging tools
-
-### Excessive GitHub API Usage
-1. Enable ETag polling for dramatically reduced API usage (v2.9+)
+### Excessive API Usage
+1. Enable polling for efficient conditional requests (ETags / modifiedTime)
 2. Increase the "Change Sync Delay" in preferences
 3. Review your monitored files list for rapidly-changing files
 4. Consider using "Backup Only" sync direction for change monitoring
-5. v2.9+ automatically reduces API usage through batching, caching, and ETags
 
 ### Files Not Syncing
 1. Ensure files exist and are readable
 2. Check file paths use correct syntax (~ for home directory)
 3. Binary files are automatically skipped (except wallpapers)
 4. Parent directories must be accessible
-5. Check request queue status for upload issues (v2.9+)
+5. Check request queue status for upload issues
 
 ## Requirements
 
 - GNOME Shell 45+
-- GitHub account with private repository
-- Personal access token with repo permissions
+- One of the following storage backends:
+  - **GitHub**: Account with a private repository and Personal Access Token (`repo` scope)
+  - **Nextcloud**: Server with WebDAV access and an App Password
+  - **Google Drive**: Google account with OAuth2 credentials from [Google Cloud Console](https://console.cloud.google.com/)
 - Write access to monitored configuration files
 
 **Note**: Ubuntu-specific schemas (ubuntu-dock, ubuntu-appindicators, etc.) are only synced when the corresponding extensions are installed and active. The extension gracefully handles missing schemas without errors.
@@ -565,13 +537,13 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 
 Bugs should be reported to the Github bug tracker [https://github.com/gavindi/gnoming-profiles/issues](https://github.com/gavindi/gnoming-profiles/issues).
 
-When reporting issues with change monitoring, ETag polling, or wallpaper syncing, please include:
+When reporting issues, please include:
 - GNOME Shell version
 - Extension version
+- Storage provider in use (GitHub, Nextcloud, or Google Drive)
 - Monitored files and schemas list
-- ETag polling status from panel menu
-- GNOME Shell logs showing the issue (filtered by console level if possible - v3.0.1+)
-- For wallpaper issues: output of wallpaper validation diagnostic
+- Polling status from panel menu
+- GNOME Shell logs showing the issue (filtered by console level if possible)
 
 ## License
 
@@ -579,10 +551,4 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
-- **v3.3.1** — Fixed Nextcloud polling; renamed GitHub-specific polling settings to provider-agnostic
-- **v3.3.0** — Nextcloud/WebDAV storage backend, StorageProvider abstraction, live provider switching
-- **v3.0.4** — Auto-detect repository default branch instead of hardcoding "main"
-- **v3.0.3** — Added GNOME Shell 49 support
-- **v3.0.2** — Removed 42 unused functions/methods, template literal standardisation, named constants
-
-See [CHANGELOG.md](CHANGELOG.md) for the full history.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.

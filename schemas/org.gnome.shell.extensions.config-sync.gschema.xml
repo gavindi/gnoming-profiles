@@ -4,7 +4,7 @@
     <key name="storage-provider" type="s">
       <default>"github"</default>
       <summary>Storage Provider</summary>
-      <description>Which storage backend to use: "github" or "nextcloud"</description>
+      <description>Which storage backend to use: "github", "nextcloud", or "googledrive"</description>
     </key>
     <key name="nextcloud-url" type="s">
       <default>""</default>
@@ -40,6 +40,26 @@
       <default>""</default>
       <summary>GitHub Personal Access Token</summary>
       <description>Personal access token with repo permissions</description>
+    </key>
+    <key name="gdrive-client-id" type="s">
+      <default>""</default>
+      <summary>Google Drive OAuth2 Client ID</summary>
+      <description>OAuth2 Client ID from Google Cloud Console (Desktop app type)</description>
+    </key>
+    <key name="gdrive-client-secret" type="s">
+      <default>""</default>
+      <summary>Google Drive OAuth2 Client Secret</summary>
+      <description>OAuth2 Client Secret from Google Cloud Console</description>
+    </key>
+    <key name="gdrive-refresh-token" type="s">
+      <default>""</default>
+      <summary>Google Drive Refresh Token</summary>
+      <description>OAuth2 refresh token obtained during authorization flow</description>
+    </key>
+    <key name="gdrive-folder-name" type="s">
+      <default>".gnoming-profiles"</default>
+      <summary>Google Drive Folder Name</summary>
+      <description>Name of the root folder in Google Drive for synced profiles</description>
     </key>
     <key name="auto-sync-on-login" type="b">
       <default>true</default>

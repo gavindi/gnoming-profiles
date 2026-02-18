@@ -26,6 +26,7 @@ import { RequestQueue } from './lib/RequestQueue.js';
 import { ETagManager } from './lib/ETagManager.js';
 import { GitHubProvider } from './lib/GitHubProvider.js';
 import { NextcloudProvider } from './lib/NextcloudProvider.js';
+import { GoogleDriveProvider } from './lib/GoogleDriveProvider.js';
 import { FileMonitor } from './lib/FileMonitor.js';
 import { SettingsMonitor } from './lib/SettingsMonitor.js';
 import { WallpaperManager } from './lib/WallpaperManager.js';
@@ -174,6 +175,9 @@ export default class ConfigSyncExtension extends Extension {
             case 'nextcloud':
                 console.log('Using Nextcloud storage provider');
                 return new NextcloudProvider(this._requestQueue, this._etagManager);
+            case 'googledrive':
+                console.log('Using Google Drive storage provider');
+                return new GoogleDriveProvider(this._requestQueue, this._etagManager);
             case 'github':
             default:
                 console.log('Using GitHub storage provider');

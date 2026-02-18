@@ -2,6 +2,25 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.3.2] - 2026-02-19
+
+### Added
+- **Google Drive storage backend** — sync profiles to Google Drive as a third storage option alongside GitHub and Nextcloud
+- OAuth2 loopback authorization flow with PKCE — opens browser for Google login, catches redirect on localhost to obtain refresh token
+- Google Drive preferences UI — Client ID/Secret fields, folder name, Authorize button with status indicator
+- New GSettings keys: `gdrive-client-id`, `gdrive-client-secret`, `gdrive-refresh-token`, `gdrive-folder-name`
+
+### Architecture
+- `GoogleDriveProvider` implements StorageProvider with path-to-ID resolution cache for Google Drive's ID-based file system
+- Multipart upload helper for Google Drive API v3 (`multipart/related` with JSON metadata + binary content)
+- Token management with automatic refresh and `invalid_grant` recovery
+- `modifiedTime`-based polling for remote change detection
+- OAuth2 loopback server uses `Gio.SocketService` for libsoup3 compatibility
+
+### Changed
+- Provider selection dropdown updated to three options: GitHub, Nextcloud WebDAV, Google Drive
+- Security info and About tab updated to mention Google Drive
+
 ## [v3.3.1] - 2026-02-19
 
 ### Fixed

@@ -7,11 +7,11 @@
 ## ✨ What Makes Gnoming Profiles Special?
 
 ### 🔄 **Effortless Multi-Device Sync**
-Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, workspace preferences, dock settings, and even wallpapers automatically sync across all your GNOME devices through a private GitHub repository or your own self-hosted Nextcloud server.
+Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, workspace preferences, dock settings, and even wallpapers automatically sync across all your GNOME devices through GitHub, your own Nextcloud server, or Google Drive.
 
 ### ⚡ **Real-Time Intelligence**
 - **Smart Change Detection**: Monitors your settings and files in real-time, automatically backing up changes as you make them
-- **Ultra-Efficient Polling**: Revolutionary ETag-based technology reduces bandwidth usage by up to 95% while checking for remote updates
+- **Ultra-Efficient Polling**: ETag and modifiedTime-based technology reduces bandwidth usage by up to 95% while checking for remote updates
 - **Instant Sync**: Changes appear on your other devices within minutes, not hours
 
 ### 🎨 **Complete Desktop Preservation**
@@ -21,17 +21,18 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 - **Ubuntu Integration**: Special support for Ubuntu's unique desktop extensions and features
 - **Workspace Magic**: Your entire workspace setup, keyboard shortcuts, and window management preferences
 
-### 🌐 **Your Data, Your Way** *(NEW in v3.3)*
-- **GitHub or Nextcloud**: Choose between a private GitHub repository or your own Nextcloud server
-- **Self-Hosted Option**: Keep everything on your own infrastructure with Nextcloud/WebDAV support
+### 🌐 **Three Storage Backends — Your Data, Your Way**
+- **GitHub**: Private repository with atomic commits and clean version history
+- **Nextcloud**: Self-hosted WebDAV — keep everything on your own infrastructure
+- **Google Drive**: Secure OAuth2 with PKCE — bring your own Google Cloud credentials
 - **Switch Anytime**: Change storage providers on the fly — no restart, no data loss
-- **Simple Setup**: Just enter your server URL and app password — you're syncing in seconds
 
 ### 🔒 **Security First**
-- **Private Storage**: Your data stays in your own private GitHub repository or self-hosted Nextcloud
-- **Encrypted Storage**: Access tokens and passwords stored securely using GNOME's built-in encryption
-- **Selective Sync**: Only sync what you choose - complete control over your data
-- **No Third Parties**: Works directly with GitHub or your own server — no middleman involved
+- **Private Storage**: GitHub uses private repos; Nextcloud and Google Drive use your own account
+- **Encrypted Credentials**: Tokens, passwords, and OAuth2 tokens stored securely via GNOME GSettings
+- **Minimal Permissions**: GitHub uses `repo` scope; Google Drive uses `drive.file` (only app-created files)
+- **Selective Sync**: Only sync what you choose — complete control over your data
+- **No Third Parties**: Works directly with your chosen provider — no middleman involved
 
 ## 🎯 Perfect For:
 
@@ -47,52 +48,57 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 
 ## 🚀 Key Features That Set Us Apart
 
-### **Choose Your Backend (v3.3)**
-- **GitHub**: Atomic batch commits, clean version history, familiar workflow
-- **Nextcloud**: Self-hosted, WebDAV-based, full control over your data
+### **Choose Your Backend**
+- **GitHub**: Atomic batch commits via Tree API, clean version history, familiar Git workflow
+- **Nextcloud**: Self-hosted WebDAV, full control over your data, no third-party accounts needed
+- **Google Drive**: Secure OAuth2 with PKCE — supply your own credentials from Google Cloud Console
 - **Live Switching**: Change providers from preferences — takes effect immediately
-- **Same Experience**: Both backends support all features — settings, files, wallpapers, polling
+- **Same Experience**: All three backends support every feature — settings, files, wallpapers, polling
 
 ### **Revolutionary Performance**
-- **95% Bandwidth Reduction**: ETag-based polling means lightning-fast sync checks
-- **Single-Commit Batching**: All your changes upload together for clean Git history
-- **Smart Caching**: Never re-upload unchanged files
+- **95% Bandwidth Reduction**: Conditional polling (ETags / modifiedTime) means lightning-fast sync checks
+- **Batch Uploading**: GitHub uses Tree API for single-commit batching; Google Drive uses multipart upload with path-to-ID caching
+- **Smart Caching**: SHA-256 content hashing means unchanged files are never re-uploaded
 - **Memory Optimized**: Comprehensive resource management prevents system slowdowns
 
-### **Zero-Configuration Intelligence**
+### **Smart Intelligence**
+- **Google Drive with PKCE**: Secure OAuth2 flow — add your credentials, click Authorize, and go
 - **Auto-Discovery**: Automatically detects and syncs relevant GNOME settings
 - **Smart Defaults**: Works perfectly out of the box with sensible presets
 - **Wallpaper Magic**: Automatically handles wallpaper files without corruption
 - **Ubuntu Ready**: Includes all Ubuntu-specific desktop extensions by default
 
 ### **Professional Reliability**
-- **Binary-Safe Technology**: Wallpapers and files sync without corruption
-- **Atomic Operations**: All changes succeed or fail together - no partial syncs
-- **Error Recovery**: Robust handling of network issues and conflicts
-- **Resource Clean**: Proper memory management ensures stable operation
+- **Binary-Safe Technology**: Wallpapers and files sync without corruption across all providers
+- **Atomic Operations**: All changes succeed or fail together — no partial syncs
+- **Error Recovery**: Robust handling of network issues, expired tokens, and conflicts
+- **Token Auto-Refresh**: Google Drive access tokens refresh automatically; expired refresh tokens prompt re-authorization
+- **Resource Clean**: Proper cleanup of sessions, tokens, and caches on extension disable
 
 ### **Visual Feedback**
 - **Smart Panel Indicator**: Always know your sync status at a glance
 - **Real-Time Updates**: See exactly what's happening with detailed status information
-- **Progress Tracking**: Monitor sync operations, queue status, and efficiency metrics
+- **Progress Tracking**: Monitor sync operations, queue status, and polling efficiency
 
 ## 🎉 What Users Are Saying
 
 *"Finally! I can hop between my work laptop and home desktop without spending an hour reconfiguring everything. The wallpaper sync is brilliant!"*
 
-*"The ETag polling is genius - it barely uses any bandwidth but keeps everything perfectly in sync. My mobile hotspot thanks you!"*
+*"The ETag polling is genius — it barely uses any bandwidth but keeps everything perfectly in sync. My mobile hotspot thanks you!"*
 
 *"Set it up once, forgot about it, and it just works. Exactly what a good tool should do."*
 
 *"Being able to use my own Nextcloud server instead of GitHub was exactly what I needed. My configs never leave my infrastructure."*
 
+*"Google Drive setup was straightforward. Add my credentials, authorize, done. All my settings syncing in seconds."*
+
 ## 🔧 Simple Setup, Powerful Results
 
 1. **Install** the extension from GNOME Extensions
-2. **Pick** your storage — GitHub or your own Nextcloud server
-3. **Connect** with a token or app password
+2. **Pick** your storage — GitHub, Nextcloud, or Google Drive
+3. **Connect** — enter a token, app password, or your Google Cloud OAuth2 credentials
 4. **Choose** what to sync (or use the smart defaults)
-5. **Relax** - your desktop setup is now immortal
+5. **Relax** — your desktop setup is now immortal
 
 ## 🆓 Free, Open Source, Community Driven
 
@@ -102,10 +108,10 @@ Gnoming Profiles is completely free and open source under GPL v2. Built by the c
 
 ## 📊 Technical Excellence
 
-- **Modular Architecture**: Clean, maintainable code with proper separation of concerns
-- **Battle Tested**: Comprehensive error handling and edge case management
-- **Performance Optimized**: Minimal resource usage with maximum efficiency
-- **Future Proof**: Built with modern APIs and best practices
+- **Pluggable Architecture**: StorageProvider strategy pattern — add new backends without touching existing code
+- **Battle Tested**: Comprehensive error handling and edge case management across three providers
+- **Performance Optimized**: Minimal resource usage with conditional polling, content caching, and path-to-ID resolution
+- **Future Proof**: Built with modern GJS APIs and best practices
 
 ## 🎯 Ready to Transform Your Workflow?
 
