@@ -94,8 +94,8 @@ export default class ConfigSyncExtension extends Extension {
         
         // Setup monitoring and polling
         this._setupChangeMonitoring();
-        this._setupGitHubPolling();
-        
+        this._setupRemotePolling();
+
         // Setup settings change listeners
         this._setupSettingsListeners();
         
@@ -115,8 +115,8 @@ export default class ConfigSyncExtension extends Extension {
         
         // Stop all monitoring and polling
         this._stopChangeMonitoring();
-        this._stopGitHubPolling();
-        
+        this._stopRemotePolling();
+
         // Stop status updates with proper cleanup
         this._stopStatusUpdateTimer();
         
@@ -386,11 +386,11 @@ export default class ConfigSyncExtension extends Extension {
     /**
      * Setup remote polling with ETag support
      */
-    _setupGitHubPolling() {
+    _setupRemotePolling() {
         // Stop existing polling
-        this._stopGitHubPolling();
+        this._stopRemotePolling();
 
-        const pollingEnabled = this._settings.get_boolean('github-polling-enabled');
+        const pollingEnabled = this._settings.get_boolean('polling-enabled');
         if (!pollingEnabled) {
             this._indicator.updatePollingStatus(false, 0);
             return;
@@ -404,13 +404,25 @@ export default class ConfigSyncExtension extends Extension {
             return;
         }
 
-        const intervalMinutes = this._settings.get_int('github-polling-interval');
+        const intervalMinutes = this._settings.get_int('polling-interval');
         this._isPolling = true;
 
         console.log(`${this._storageProvider.name} ETag polling: Starting every ${intervalMinutes} minutes`);
 
-        // Start polling
-        this._scheduleNextPoll(intervalMinutes * ConfigSyncExtension.SECONDS_PER_MINUTE * ConfigSyncExtension.MILLISECONDS_PER_SECOND);
+        const intervalMs = intervalMinutes * ConfigSyncExtension.SECONDS_PER_MINUTE * ConfigSyncExtension.MILLISECONDS_PER_SECOND;
+
+        // Immediate first poll to cache the ETag, then schedule recurring
+        this._pollForRemoteChanges().then(() => {
+            if (this._isPolling) {
+                this._scheduleNextPoll(intervalMs);
+            }
+        }).catch(error => {
+            console.error(`${this._storageProvider.name} initial poll error: ${error.message}`);
+            if (this._isPolling) {
+                this._scheduleNextPoll(intervalMs);
+            }
+        });
+
         this._indicator.updatePollingStatus(true, intervalMinutes);
     }
     
@@ -432,12 +444,12 @@ export default class ConfigSyncExtension extends Extension {
                 return GLib.SOURCE_REMOVE;
             }
             
-            this._pollGitHubForChanges().then(() => {
+            this._pollForRemoteChanges().then(() => {
                 if (this._isPolling) {
                     this._scheduleNextPoll(intervalMs);
                 }
             }).catch(error => {
-                console.error(`GitHub ETag polling error: ${error.message}`);
+                console.error(`${this._storageProvider.name} ETag polling error: ${error.message}`);
                 if (this._isPolling) {
                     this._scheduleNextPoll(intervalMs);
                 }
@@ -451,7 +463,7 @@ export default class ConfigSyncExtension extends Extension {
     /**
      * Poll for remote changes using the storage provider's ETag-based requests
      */
-    async _pollGitHubForChanges() {
+    async _pollForRemoteChanges() {
         const credentials = this._storageProvider.getCredentials(this._settings);
 
         try {
@@ -509,11 +521,21 @@ export default class ConfigSyncExtension extends Extension {
             console.log(`${this._storageProvider.name} polling: Starting auto-sync of remote changes`);
 
             this._performSyncOperation('remote changes', async () => {
-                const result = await this._syncManager.syncFromRemote();
-                if (result && result.requiresRestore) {
-                    await this._syncManager.restoreBackup(result.backupData, (enabled) => {
-                        this._settingsMonitor.setEnabled(enabled);
-                    });
+                // Disable both monitors to prevent downloaded files from
+                // triggering an upload cycle (which would change the ETag
+                // and cause the next poll to detect spurious "changes").
+                this._fileMonitor.setEnabled(false);
+                this._settingsMonitor.setEnabled(false);
+
+                try {
+                    const result = await this._syncManager.syncFromRemote();
+                    if (result && result.requiresRestore) {
+                        await this._syncManager.restoreBackup(result.backupData, (enabled) => {
+                            this._settingsMonitor.setEnabled(enabled);
+                        });
+                    }
+                } finally {
+                    this._fileMonitor.setEnabled(true);
                 }
 
                 if (this._indicator) {
@@ -531,9 +553,9 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Stop GitHub polling with proper cleanup
+     * Stop remote polling with proper cleanup
      */
-    _stopGitHubPolling() {
+    _stopRemotePolling() {
         if (this._pollingTimeout) {
             GLib.source_remove(this._pollingTimeout);
             this._pollingTimeout = null;
@@ -567,11 +589,11 @@ export default class ConfigSyncExtension extends Extension {
         this._settings.connect('changed::sync-wallpapers', () => {
             this._setupChangeMonitoring();
         });
-        this._settings.connect('changed::github-polling-enabled', () => {
-            this._setupGitHubPolling();
+        this._settings.connect('changed::polling-enabled', () => {
+            this._setupRemotePolling();
         });
-        this._settings.connect('changed::github-polling-interval', () => {
-            this._setupGitHubPolling();
+        this._settings.connect('changed::polling-interval', () => {
+            this._setupRemotePolling();
         });
         this._settings.connect('changed::trigger-initial-sync', () => {
             this._onTriggerInitialSync();
@@ -587,7 +609,7 @@ export default class ConfigSyncExtension extends Extension {
     _onStorageProviderChanged() {
         console.log('Storage provider changed, reinitializing components');
         this._stopChangeMonitoring();
-        this._stopGitHubPolling();
+        this._stopRemotePolling();
 
         // Clean up old provider
         if (this._storageProvider) {
@@ -608,7 +630,7 @@ export default class ConfigSyncExtension extends Extension {
 
         // Restart monitoring and polling
         this._setupChangeMonitoring();
-        this._setupGitHubPolling();
+        this._setupRemotePolling();
 
         console.log(`Storage provider switched to ${this._storageProvider.name}`);
     }

@@ -67,16 +67,16 @@
       <summary>Bidirectional Change Sync</summary>
       <description>Whether change sync should be bidirectional (backup and restore) or backup only</description>
     </key>
-    <key name="github-polling-enabled" type="b">
+    <key name="polling-enabled" type="b">
       <default>false</default>
-      <summary>Enable GitHub Polling</summary>
-      <description>Periodically check GitHub repository for remote changes</description>
+      <summary>Enable Remote Polling</summary>
+      <description>Periodically check remote storage for changes</description>
     </key>
-    <key name="github-polling-interval" type="i">
+    <key name="polling-interval" type="i">
       <range min="1" max="1440"/>
       <default>5</default>
-      <summary>GitHub Polling Interval</summary>
-      <description>How often to poll GitHub for changes (in minutes)</description>
+      <summary>Remote Polling Interval</summary>
+      <description>How often to poll remote storage for changes (in minutes)</description>
     </key>
     <key name="auto-sync-remote-changes" type="b">
       <default>true</default>

@@ -579,19 +579,10 @@ Gnoming Profiles GNOME Shell extension is distributed under the terms of the GNU
 
 ## Changelog
 
+- **v3.3.1** — Fixed Nextcloud polling; renamed GitHub-specific polling settings to provider-agnostic
 - **v3.3.0** — Nextcloud/WebDAV storage backend, StorageProvider abstraction, live provider switching
 - **v3.0.4** — Auto-detect repository default branch instead of hardcoding "main"
 - **v3.0.3** — Added GNOME Shell 49 support
 - **v3.0.2** — Removed 42 unused functions/methods, template literal standardisation, named constants
-- **v3.0.1** — Semantic console logging, HTTP session cleanup, enhanced timeout management
-- **v3.0** — Critical wallpaper corruption fix, binary-safe downloads, memory leak fixes, destroy methods
-- **v2.9** — Modular architecture, ETag-based polling, Tree API batching, request queue, smart caching
-- **v2.8** — Reorganised panel menu, sync lock system, session handler memory leak fix
-- **v2.7** — Initialize sync button, schema detection fix, simplified menu interface
-- **v2.6** — Renamed tabs (Monitoring → Sync, Advanced → Help), UI improvements
-- **v2.4** — Tabbed preferences, GNOME multitasking schemas, Ubuntu desktop extension schemas
-- **v2.3** — Wallpaper storage moved to dedicated `wallpapers/` folder, removed from config-backup.json
-- **v2.2** — Optional wallpaper syncing with automatic schema addition and path updating
-- **v2.1** — GitHub polling for remote change detection, multi-device sync support
-- **v2.0** — Real-time change monitoring for files and GSettings, smart debouncing
-- **v1.0** — Initial release with session-based syncing and GitHub integration
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history.

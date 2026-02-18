@@ -265,15 +265,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         // Change monitoring group
         const changeGroup = new Adw.PreferencesGroup({
-            title: _('Change Monitoring'),
-            description: _('Automatically sync when files or settings change in real-time')
+            title: _('Local Change Monitoring'),
+            description: _('Detect changes made on THIS device and upload them to remote storage')
         });
         page.add(changeGroup);
-        
+
         // Auto sync on change
         const changeSyncRow = new Adw.SwitchRow({
-            title: _('Auto-sync on Changes'),
-            subtitle: _('Automatically backup when monitored files or settings change')
+            title: _('Auto-upload Local Changes'),
+            subtitle: _('When files or settings change on this device, automatically upload to remote storage')
         });
         settings.bind('auto-sync-on-change', changeSyncRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         changeGroup.add(changeSyncRow);
@@ -325,19 +325,19 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         // ETag-based remote polling group
         const pollingGroup = new Adw.PreferencesGroup({
-            title: _('ETag-Based Remote Polling'),
-            description: _('Efficiently check remote storage for changes using HTTP ETags')
+            title: _('Remote Change Detection'),
+            description: _('Periodically check remote storage for changes made by OTHER devices and download them')
         });
         page.add(pollingGroup);
-        
-        // Enable GitHub polling
+
+        // Enable remote polling
         const pollingEnabledRow = new Adw.SwitchRow({
-            title: _('Enable ETag Polling'),
-            subtitle: _('Use efficient ETag-based polling to detect remote changes from other devices')
+            title: _('Enable Remote Polling'),
+            subtitle: _('Periodically check for changes uploaded by other devices (uses efficient ETag headers)')
         });
-        settings.bind('github-polling-enabled', pollingEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('polling-enabled', pollingEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(pollingEnabledRow);
-        
+
         // Polling interval
         const pollingIntervalRow = new Adw.SpinRow({
             title: _('Polling Interval'),
@@ -347,16 +347,16 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
                 upper: ConfigSyncPreferences.MAX_POLLING_INTERVAL_MINUTES, // Max 24 hours
                 step_increment: 1,
                 page_increment: 10,
-                value: settings.get_int('github-polling-interval')
+                value: settings.get_int('polling-interval')
             })
         });
-        settings.bind('github-polling-interval', pollingIntervalRow, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('polling-interval', pollingIntervalRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(pollingIntervalRow);
         
         // Auto-sync remote changes
         const autoSyncRemoteRow = new Adw.SwitchRow({
-            title: _('Auto-sync Remote Changes'),
-            subtitle: _('Automatically download and apply changes when detected via ETag polling')
+            title: _('Auto-apply Remote Changes'),
+            subtitle: _('Automatically download and apply changes when detected (otherwise just notify)')
         });
         settings.bind('auto-sync-remote-changes', autoSyncRemoteRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(autoSyncRemoteRow);
@@ -749,7 +749,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.3.0')
+            subtitle: _('3.3.1')
         });
         infoGroup.add(versionRow);
         
@@ -821,9 +821,15 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v331Row = new Adw.ActionRow({
+            title: _('v3.3.1'),
+            subtitle: _('Fixed Nextcloud polling; renamed GitHub-specific polling settings to provider-agnostic')
+        });
+        changelogGroup.add(v331Row);
+
         const v330Row = new Adw.ActionRow({
             title: _('v3.3.0'),
-            subtitle: _('Nextcloud/WebDAV storage backend, StorageProvider abstraction layer, live provider switching')
+            subtitle: _('Nextcloud/WebDAV storage backend, StorageProvider abstraction, live provider switching')
         });
         changelogGroup.add(v330Row);
 
@@ -844,12 +850,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Removed 42 unused functions and methods, template literal standardisation')
         });
         changelogGroup.add(v302Row);
-
-        const v301Row = new Adw.ActionRow({
-            title: _('v3.0.1'),
-            subtitle: _('Semantic console logging, HTTP session cleanup, enhanced timeout management')
-        });
-        changelogGroup.add(v301Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({

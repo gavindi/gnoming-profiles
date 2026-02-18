@@ -2,6 +2,24 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.3.1] - 2026-02-19
+
+### Fixed
+- **Nextcloud periodic polling not detecting changes** — `_performRequest` used `send_and_read_async` for HEAD requests which can fail on empty bodies in GJS/libsoup3; now uses `send_async` for HEAD
+- **Polling falsely detecting own uploads as remote changes** — after uploading `config-backup.json`, the new ETag is now cached via a HEAD request so the next poll sees a matching ETag instead of a stale one
+- **Remote sync triggering infinite upload loop** — file monitor was not disabled during remote restore, causing downloaded files to trigger an upload which changed the ETag, which triggered the next poll to sync again
+- **Panel indicator crash on Nextcloud remote changes** — `showRemoteChanges()` assumed a GitHub commit object with `.sha`; now handles null commit for Nextcloud
+- Added null/empty-bytes guard in `_performRequest` for bodyless responses (e.g. 204)
+- Added GET fallback in `pollForChanges` when HEAD does not return an ETag header
+- Renamed GSettings keys to provider-agnostic names: `polling-enabled`, `polling-interval`
+- Renamed internal polling methods (`_setupGitHubPolling` → `_setupRemotePolling`, etc.) to reflect multi-backend support
+
+### Added
+- `FileMonitor.setEnabled()` — allows temporarily suppressing file change events during restore operations
+
+### Changed
+- Sync tab UI labels clarified: "Local Change Monitoring" (upload) vs "Remote Change Detection" (download) to make the distinction between local and remote sync obvious
+
 ## [v3.3.0] - 2026-02-18
 
 ### Added
