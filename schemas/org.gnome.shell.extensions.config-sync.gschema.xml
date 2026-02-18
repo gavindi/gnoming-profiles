@@ -1,6 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.gnoming-profiles" path="/org/gnome/shell/extensions/gnoming-profiles/">
+    <key name="storage-provider" type="s">
+      <default>"github"</default>
+      <summary>Storage Provider</summary>
+      <description>Which storage backend to use: "github" or "nextcloud"</description>
+    </key>
+    <key name="nextcloud-url" type="s">
+      <default>""</default>
+      <summary>Nextcloud Server URL</summary>
+      <description>Base URL of your Nextcloud server (e.g. https://cloud.example.com)</description>
+    </key>
+    <key name="nextcloud-username" type="s">
+      <default>""</default>
+      <summary>Nextcloud Username</summary>
+      <description>Your Nextcloud username</description>
+    </key>
+    <key name="nextcloud-password" type="s">
+      <default>""</default>
+      <summary>Nextcloud App Password</summary>
+      <description>App password for Nextcloud WebDAV access</description>
+    </key>
+    <key name="nextcloud-folder" type="s">
+      <default>".gnoming-profiles"</default>
+      <summary>Nextcloud Sync Folder</summary>
+      <description>Folder name in your Nextcloud storage for synced profiles</description>
+    </key>
     <key name="github-username" type="s">
       <default>""</default>
       <summary>GitHub Username</summary>

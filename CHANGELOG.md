@@ -2,6 +2,27 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.3.0] - 2026-02-18
+
+### Added
+- **Nextcloud/WebDAV storage backend** — sync profiles to a self-hosted Nextcloud server as an alternative to GitHub
+- **StorageProvider abstraction layer** — pluggable backend architecture (`StorageProvider`, `GitHubProvider`, `NextcloudProvider`)
+- Provider selection dropdown in preferences (GitHub / Nextcloud WebDAV)
+- Nextcloud settings UI — server URL, username, app password, sync folder
+- Live provider switching without requiring extension restart
+- New GSettings keys: `storage-provider`, `nextcloud-url`, `nextcloud-username`, `nextcloud-password`, `nextcloud-folder`
+
+### Changed
+- `SyncManager` now uses provider-agnostic `syncToRemote()` / `syncFromRemote()` methods
+- `WallpaperManager` refactored to use StorageProvider interface instead of direct GitHub API calls
+- Polling and change detection work across both providers via ETag comparison
+- Preferences UI labels updated to say "Remote" instead of "GitHub" where appropriate
+
+### Architecture
+- Extracted GitHub-specific upload logic (Tree API batching) into `GitHubProvider`
+- `NextcloudProvider` implements WebDAV operations: `PUT`, `GET`, `PROPFIND`, `MKCOL`
+- Backward-compatible shims (`syncToGitHub`/`syncFromGitHub`) retained as deprecated wrappers
+
 ## [v3.0.4] - 2026-02-11
 
 ### Fixed

@@ -4,26 +4,57 @@ This directory contains the modular components of the Gnoming Profiles extension
 
 ## Module Overview
 
+### Storage Providers
+
+#### `StorageProvider.js`
+- **Purpose**: Abstract base class defining the storage backend interface
+- **Features**:
+  - Defines the contract for all storage providers (`uploadBatch`, `downloadFile`, `downloadBinaryFile`, `listDirectory`, `pollForChanges`)
+  - Credential management (`getCredentials`, `hasValidCredentials`)
+  - Change cache management (`clearChangeCache`)
+- **Usage**: Extended by concrete providers (GitHubProvider, NextcloudProvider)
+
+#### `GitHubProvider.js`
+- **Purpose**: GitHub storage backend implementing StorageProvider
+- **Features**:
+  - Atomic batch uploads via GitHub Tree API (blobs → tree → commit → ref)
+  - GitHub Content API downloads with base64 decoding
+  - Binary file support via download URLs or base64 fallback
+  - ETag-based polling via commits endpoint
+  - Auto-detection of repository default branch
+- **Dependencies**: GitHubAPI, StorageProvider
+
+#### `NextcloudProvider.js`
+- **Purpose**: Nextcloud/WebDAV storage backend implementing StorageProvider
+- **Features**:
+  - WebDAV file operations (PUT, GET, PROPFIND, MKCOL)
+  - Basic auth with username and app password
+  - Automatic directory creation via incremental MKCOL
+  - PROPFIND XML parsing for directory listings
+  - ETag-based change detection on config files
+- **Dependencies**: StorageProvider
+- **Usage**: Self-hosted alternative to GitHub using any WebDAV-compatible server
+
 ### Core Infrastructure
 
 #### `RequestQueue.js`
-- **Purpose**: Manages GitHub API request concurrency
-- **Features**: 
+- **Purpose**: Manages API request concurrency
+- **Features**:
   - Configurable maximum concurrent requests (default: 3)
   - Queue management with automatic processing
   - Error isolation and cleanup
 - **Usage**: Prevents API rate limiting and manages network resources
 
 #### `ETagManager.js`
-- **Purpose**: Handles ETag caching for efficient GitHub polling
+- **Purpose**: Handles ETag caching for efficient remote polling
 - **Features**:
   - ETag storage and retrieval
   - Poll result tracking (304/changes/errors)
   - Cache management and cleanup
-- **Usage**: Enables bandwidth-efficient conditional HTTP requests
+- **Usage**: Enables bandwidth-efficient conditional HTTP requests for all providers
 
 #### `GitHubAPI.js`
-- **Purpose**: GitHub API integration with ETag support
+- **Purpose**: Low-level GitHub REST API client
 - **Features**:
   - ETag-based conditional requests
   - Tree API operations for batching
@@ -31,6 +62,7 @@ This directory contains the modular components of the Gnoming Profiles extension
   - Binary file download support (for wallpapers)
   - Comprehensive API coverage
 - **Dependencies**: RequestQueue, ETagManager
+- **Usage**: Used internally by GitHubProvider
 
 ### Monitoring Components
 
@@ -56,22 +88,21 @@ This directory contains the modular components of the Gnoming Profiles extension
 - **Purpose**: Wallpaper syncing and management
 - **Features**:
   - On-demand wallpaper loading
-  - URI path updating and validation  
+  - URI path updating and validation
   - Download and restoration with binary integrity
-  - Dual download method support (API vs direct download)
   - Comprehensive file validation (size, type, existence)
   - Graceful handling of missing or invalid files
-- **Dependencies**: GitHubAPI, Utils
-- **Usage**: Handles wallpaper image syncing
+- **Dependencies**: StorageProvider, Utils
+- **Usage**: Handles wallpaper image syncing via the active storage provider
 
 #### `SyncManager.js`
 - **Purpose**: Coordinates all sync operations
 - **Features**:
-  - Backup creation and restoration
-  - GitHub Tree API batching
+  - Provider-agnostic backup and restoration (`syncToRemote` / `syncFromRemote`)
   - Content hash caching
   - Sync operation locking
-- **Dependencies**: GitHubAPI, WallpaperManager, Settings
+  - Backward-compatible shims for legacy method names
+- **Dependencies**: StorageProvider, WallpaperManager, Settings, Utils
 - **Usage**: Main sync logic coordinator
 
 ### User Interface
@@ -93,7 +124,6 @@ This directory contains the modular components of the Gnoming Profiles extension
   - Content hashing and binary detection
   - JSON parsing with error handling
   - Debouncing and throttling functions
-  - GitHub-specific validation helpers
   - Wallpaper file validation (size, type, URI parsing)
   - Retry logic and deep cloning
 - **Usage**: Shared utilities to reduce code duplication
@@ -126,16 +156,22 @@ This directory contains the modular components of the Gnoming Profiles extension
 extension.js (Main)
 ├── RequestQueue.js
 ├── ETagManager.js
-├── GitHubAPI.js (depends on RequestQueue, ETagManager)
+├── StorageProvider.js (abstract base)
+│   ├── GitHubProvider.js (depends on GitHubAPI)
+│   │   └── GitHubAPI.js (depends on RequestQueue, ETagManager)
+│   └── NextcloudProvider.js (standalone HTTP via Soup)
 ├── FileMonitor.js (uses Utils)
 ├── SettingsMonitor.js (uses Utils)
-├── WallpaperManager.js (depends on GitHubAPI, uses Utils)
-├── SyncManager.js (depends on GitHubAPI, WallpaperManager, Settings, uses Utils)
+├── WallpaperManager.js (depends on StorageProvider, uses Utils)
+├── SyncManager.js (depends on StorageProvider, WallpaperManager, Settings, uses Utils)
 ├── PanelIndicator.js
 └── Utils.js (shared utilities)
 ```
 
 ## Key Design Patterns
+
+### Strategy Pattern
+StorageProvider defines a common interface; GitHubProvider and NextcloudProvider implement backend-specific logic. The active provider is selected at runtime and can be switched live.
 
 ### Dependency Injection
 Components receive their dependencies through constructor parameters, making testing and mocking easier.
@@ -160,7 +196,7 @@ Each module implements comprehensive error handling:
 ## Performance Considerations
 
 ### Request Queue
-- Limits concurrent GitHub API requests
+- Limits concurrent API requests
 - Prevents rate limiting
 - Manages network resources efficiently
 
@@ -168,6 +204,7 @@ Each module implements comprehensive error handling:
 - Reduces bandwidth usage by up to 95%
 - Enables frequent polling without performance impact
 - Smart cache invalidation
+- Works across all storage providers
 
 ### Content Caching
 - SHA-256 based change detection
@@ -179,58 +216,14 @@ Each module implements comprehensive error handling:
 - Reduces memory usage
 - Improves startup performance
 
-## Testing Strategy
+## Adding a New Storage Provider
 
-The modular architecture enables several testing approaches:
-
-### Unit Testing
-Each module can be tested independently with mocked dependencies.
-
-### Integration Testing
-Module interactions can be tested with real or mock components.
-
-### End-to-End Testing
-Full extension functionality can be tested through the main extension class.
-
-## Future Enhancements
-
-The modular architecture makes it easy to add new features:
-
-### New Sync Targets
-- Additional cloud storage providers
-- Different backup formats
-- Multiple repository support
-
-### Enhanced Monitoring
-- Additional file types
-- Network-based configuration sources
-- Cloud settings synchronization
-
-### Improved UI
-- Multiple panel indicators
-- Desktop notifications
-- Progress indicators
-
-## Best Practices
-
-### Adding New Modules
-1. Define clear responsibilities and interfaces
-2. Minimize dependencies on other modules
-3. Implement comprehensive error handling
-4. Add detailed logging for debugging
-5. Update this documentation
-
-### Modifying Existing Modules
-1. Maintain backward compatibility where possible
-2. Update dependent modules if interfaces change
-3. Test thoroughly with integration tests
-4. Update documentation to reflect changes
-
-### Performance Guidelines
-1. Use async/await for all I/O operations
-2. Implement proper resource cleanup
-3. Cache expensive computations
-4. Minimize memory usage through on-demand loading
+1. Create a new class extending `StorageProvider`
+2. Implement all required methods: `uploadBatch`, `downloadFile`, `downloadBinaryFile`, `listDirectory`, `pollForChanges`, `getCredentials`, `hasValidCredentials`, `clearChangeCache`
+3. Add GSettings keys for provider-specific credentials
+4. Register the provider in `extension.js` `_createStorageProvider()` factory
+5. Add UI fields in `prefs.js` with show/hide logic based on provider selection
+6. Update this documentation
 
 ## Debugging
 
@@ -239,3 +232,15 @@ Each module includes extensive logging:
 - Module names are included in log messages
 - Error conditions are logged with full stack traces
 - Status changes are logged for debugging
+
+## Changelog
+
+- **v3.3.0** — Nextcloud/WebDAV backend, StorageProvider abstraction, live provider switching
+- **v3.0.4** — Auto-detect repository default branch instead of hardcoding "main"
+- **v3.0.3** — Added GNOME Shell 49 support
+- **v3.0.2** — Removed 42 unused functions/methods, template literal standardisation
+- **v3.0.1** — Semantic console logging, HTTP session cleanup, timeout management
+- **v3.0** — Critical wallpaper corruption fix, memory leak fixes, destroy methods
+- **v2.9** — ETag-based polling, Tree API batching, request queue, smart caching
+- **v2.8** — Panel menu reorganisation, schema recursion fix, initial sync option
+- **v2.7** — Tabbed preferences, Ubuntu extension support, wallpaper folder separation

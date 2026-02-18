@@ -4,113 +4,137 @@
 
 ```
 gnoming-profiles/
-├── extension.js                    # Main extension entry point (modular)
-├── prefs.js                       # Preferences UI 
+├── extension.js                    # Main extension entry point
+├── prefs.js                       # Preferences UI (Adwaita)
 ├── metadata.json                  # Extension metadata
 ├── stylesheet.css                 # CSS styles and animations
 ├── Makefile                       # Build and installation tasks
 ├── LICENSE                        # GNU GPL v2.0 license
 ├── README.md                      # Main documentation
+├── CHANGELOG.md                   # Detailed version history
 ├── STRUCTURE.md                   # This file
-├── lib/                          # Modular components (NEW in v2.9, enhanced v3.0)
-│   ├── README.md                 # Module documentation
-│   ├── RequestQueue.js           # API request concurrency management
-│   ├── ETagManager.js            # ETag caching for efficient polling
-│   ├── GitHubAPI.js              # GitHub API integration with binary-safe downloads (v3.0)
-│   ├── FileMonitor.js            # File system change monitoring
-│   ├── SettingsMonitor.js        # GSettings change monitoring
-│   ├── WallpaperManager.js       # Binary-safe wallpaper syncing management (v3.0)
-│   ├── SyncManager.js            # Sync operations coordination
-│   ├── PanelIndicator.js         # GNOME Shell panel UI
-│   └── Utils.js                  # Common utility functions
-└── schemas/                      # GSettings schema definitions
-    └── org.gnome.shell.extensions.config-sync.gschema.xml
+├── MARKETING.md                   # Marketing copy
+├── icons/
+│   └── system-switch-user-symbolic.svg  # Panel indicator icon
+├── media/
+│   └── GnomingProfilesScreenshot.png    # Screenshot for README
+├── dist/
+│   └── *.zip                      # Distribution package
+├── lib/                           # Modular components
+│   ├── README.md                  # Module documentation
+│   ├── StorageProvider.js         # Abstract storage backend interface
+│   ├── GitHubProvider.js          # GitHub storage backend (Tree API)
+│   ├── NextcloudProvider.js       # Nextcloud/WebDAV storage backend
+│   ├── GitHubAPI.js               # Low-level GitHub REST API client
+│   ├── RequestQueue.js            # API request concurrency management
+│   ├── ETagManager.js             # ETag caching for efficient polling
+│   ├── FileMonitor.js             # File system change monitoring
+│   ├── SettingsMonitor.js         # GSettings change monitoring
+│   ├── WallpaperManager.js        # Binary-safe wallpaper syncing
+│   ├── SyncManager.js             # Sync operations coordination
+│   ├── PanelIndicator.js          # GNOME Shell panel UI
+│   └── Utils.js                   # Common utility functions
+└── schemas/
+    ├── org.gnome.shell.extensions.config-sync.gschema.xml
+    └── gschemas.compiled          # Compiled schema (generated)
 ```
 
 ## File Purposes
 
 ### Core Extension Files
 
-- **`extension.js`**: Main extension class that orchestrates all modules and handles GNOME Shell integration
-- **`prefs.js`**: Preferences window implementation using Adwaita widgets
-- **`metadata.json`**: Extension metadata for GNOME Shell (name, version, compatibility)
-- **`stylesheet.css`**: CSS animations and styling for panel indicator states
+- **`extension.js`**: Main extension class — orchestrates all modules, creates the active storage provider via factory method, handles GNOME Shell lifecycle (enable/disable), session sync, polling, and live provider switching
+- **`prefs.js`**: Preferences window — Adwaita tabbed UI (General, Sync, Content, Help, About) with provider selection dropdown and conditional GitHub/Nextcloud settings
+- **`metadata.json`**: Extension metadata — name, UUID, version, GNOME Shell compatibility
+- **`stylesheet.css`**: CSS animations and styling for panel indicator states (syncing, monitoring, change detected)
 
-### Modular Library (`lib/`)
+### Storage Providers (`lib/`)
 
-#### Infrastructure Modules
-- **`RequestQueue.js`**: Manages GitHub API request concurrency to prevent rate limiting
-- **`ETagManager.js`**: Handles ETag caching for bandwidth-efficient HTTP conditional requests
-- **`GitHubAPI.js`**: Comprehensive GitHub API client with ETag support, Tree API batching, and binary-safe downloads (v3.0)
+- **`StorageProvider.js`**: Abstract base class defining the storage backend contract — `uploadBatch`, `downloadFile`, `downloadBinaryFile`, `listDirectory`, `pollForChanges`, `getCredentials`, `hasValidCredentials`, `clearChangeCache`
+- **`GitHubProvider.js`**: GitHub backend — atomic batch uploads via Tree API (blobs → tree → commit → ref), Content API downloads, binary support, ETag polling via commits endpoint, auto-detection of default branch
+- **`NextcloudProvider.js`**: Nextcloud/WebDAV backend — file operations via PUT/GET/PROPFIND/MKCOL over Soup.Session, basic auth, incremental directory creation, PROPFIND XML parsing, ETag change detection
+- **`GitHubAPI.js`**: Low-level GitHub REST API client — used internally by GitHubProvider for HTTP requests, ETag headers, Tree API, and binary downloads
 
-#### Monitoring Modules  
-- **`FileMonitor.js`**: Watches configuration files for changes using Gio.FileMonitor
-- **`SettingsMonitor.js`**: Monitors GSettings schemas for changes with availability checking
-- **`WallpaperManager.js`**: Handles binary-safe wallpaper file syncing with corruption prevention (v3.0)
+### Infrastructure Modules (`lib/`)
 
-#### Coordination Modules
-- **`SyncManager.js`**: Coordinates backup/restore operations with locking and caching
-- **`PanelIndicator.js`**: GNOME Shell panel integration with status display and animations
+- **`RequestQueue.js`**: Manages API request concurrency (max 3 simultaneous) to prevent rate limiting
+- **`ETagManager.js`**: Caches ETags for bandwidth-efficient conditional HTTP requests across all providers
 
-#### Utility Modules
-- **`Utils.js`**: Common utility functions for path handling, validation, caching, and error handling
+### Monitoring Modules (`lib/`)
+
+- **`FileMonitor.js`**: Watches configuration files for changes using Gio.FileMonitor with parent directory fallback
+- **`SettingsMonitor.js`**: Monitors GSettings schemas for changes with temporary disable during restore operations
+
+### Management Modules (`lib/`)
+
+- **`WallpaperManager.js`**: Handles wallpaper syncing — on-demand loading, binary integrity validation (JPEG/PNG headers), URI path updating, download and restoration via the active storage provider
+- **`SyncManager.js`**: Coordinates all sync operations — provider-agnostic `syncToRemote`/`syncFromRemote`, content hash caching, sync locking, backward-compatible shims for legacy method names
+
+### UI Module (`lib/`)
+
+- **`PanelIndicator.js`**: GNOME Shell panel indicator — status display, animated sync icons, organised menu sections (status, actions), ETag and queue status
+
+### Utilities (`lib/`)
+
+- **`Utils.js`**: Shared helpers — file path expansion, content hashing, binary detection, JSON parsing, wallpaper validation (size, type, URI)
 
 ### Configuration
 
-- **`schemas/`**: GSettings schema definitions for extension preferences
-- **`Makefile`**: Automation for building, installing, and testing the extension
+- **`schemas/*.gschema.xml`**: GSettings schema — storage provider selection, GitHub credentials, Nextcloud credentials (URL, username, app password, folder), sync options, monitored schemas and files
+- **`Makefile`**: Build automation — `make install`, `make dist`, `make clean`
 
 ## Module Dependencies
 
 ```mermaid
 graph TD
-    A[extension.js] --> B[RequestQueue]
-    A --> C[ETagManager] 
-    A --> D[GitHubAPI]
+    A[extension.js] --> SP[StorageProvider]
+    SP --> GP[GitHubProvider]
+    SP --> NP[NextcloudProvider]
+    GP --> D[GitHubAPI]
+    D --> B[RequestQueue]
+    D --> C[ETagManager]
+    NP --> B
+    NP --> C
     A --> E[FileMonitor]
     A --> F[SettingsMonitor]
     A --> G[WallpaperManager]
     A --> H[SyncManager]
     A --> I[PanelIndicator]
     A --> J[Utils]
-    
-    D --> B
-    D --> C
-    G --> D
+    G --> SP
     G --> J
-    H --> D
+    H --> SP
     H --> G
     H --> J
     E --> J
     F --> J
-    I --> A
 ```
 
 ## Key Design Principles
 
-### Separation of Concerns
-- Each module has a single, well-defined responsibility
-- Clear interfaces between components
-- Minimal coupling between modules
+### Strategy Pattern
+StorageProvider defines a common interface; GitHubProvider and NextcloudProvider implement backend-specific logic. The active provider is selected at runtime and can be switched live without restarting the extension.
 
 ### Dependency Injection
-- Modules receive dependencies through constructors
-- Enables easy testing and mocking
-- Promotes loose coupling
+Modules receive dependencies through constructors — SyncManager and WallpaperManager receive the active StorageProvider, enabling easy swapping and testing.
 
 ### Error Isolation
-- Module failures don't cascade to other components
-- Comprehensive error handling at module boundaries
-- Graceful degradation when services are unavailable
+Module failures don't cascade. Each module handles its own errors with comprehensive logging and graceful degradation.
 
-### Performance Optimization
-- ETag-based polling reduces bandwidth by 95%
+### Performance
+- ETag-based polling reduces bandwidth by up to 95%
 - Request queuing prevents API rate limiting
-- Content caching avoids unnecessary uploads
-- On-demand loading reduces memory usage
-- Binary-safe downloads prevent corruption (v3.0)
+- Content hash caching avoids unnecessary uploads
+- On-demand wallpaper loading reduces memory usage
 
-## Build Process
+## Extension Lifecycle
+
+1. **Enable**: Create storage provider via factory, initialise all modules, setup monitoring and polling
+2. **Runtime**: Handle file/settings changes, poll for remote changes, respond to provider switching
+3. **Sync**: Coordinate backup/restore with locking via SyncManager and active StorageProvider
+4. **Disable**: Cleanup all resources — abort HTTP sessions, cancel monitors, clear caches, nullify references
+
+## Build & Debug
 
 ```bash
 # Install to local GNOME Shell extensions directory
@@ -119,90 +143,10 @@ make install
 # Create distribution package
 make dist
 
-# Run performance tests
-make test-performance
+# View extension logs
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Gnoming Profiles"
 
-# Test ETag polling efficiency  
-make test-etag
-
-# Clean build artifacts
-make clean
+# Filter by component
+journalctl -f -o cat /usr/bin/gnome-shell | grep "NextcloudProvider"
+journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ```
-
-## Development Workflow
-
-### Adding New Features
-1. Identify the appropriate module or create a new one
-2. Implement with proper error handling and logging
-3. Update dependencies in main extension.js
-4. Add tests for the new functionality
-5. Update documentation
-
-### Debugging
-- Use `journalctl -f -o cat /usr/bin/gnome-shell | grep "Module Name"` for specific modules
-- Each module includes detailed logging with identifiable prefixes
-- Error conditions are logged with full context
-
-### Testing
-- Unit test individual modules with mocked dependencies
-- Integration test module interactions
-- End-to-end test full extension functionality
-
-## Code Quality Standards
-
-### Logging
-- All modules use consistent logging with module prefixes
-- Error conditions include full context and stack traces
-- Status changes are logged for debugging
-
-### Error Handling
-- Try-catch blocks around all async operations
-- Graceful degradation when services are unavailable
-- Resource cleanup in finally blocks
-
-### Documentation
-- Comprehensive JSDoc comments for all public methods
-- README files for complex modules
-- Clear dependency documentation
-
-### Performance
-- Async/await for all I/O operations
-- Efficient resource management
-- Minimal memory footprint through on-demand loading
-
-## Extension Lifecycle
-
-1. **Enable**: Initialize all modules and setup monitoring
-2. **Runtime**: Handle file/settings changes and GitHub polling
-3. **Sync Operations**: Coordinate backup/restore with locking
-4. **Disable**: Cleanup resources and stop all monitoring
-
-The modular architecture ensures clean startup, efficient operation, and proper cleanup throughout the extension lifecycle.
-
-## Version 3.0 Enhancements
-
-### Binary-Safe Wallpaper Syncing
-- **Corruption Prevention**: Proper binary data handling prevents file corruption
-- **Header Validation**: JPEG and PNG header verification
-- **File Integrity**: Downloaded files are validated for correctness
-- **Error Detection**: Early detection of corrupt or incomplete downloads
-
-### Enhanced GitHubAPI Module
-- **Binary Download Support**: New `downloadBinaryFile()` method
-- **Proper Binary Handling**: Separate binary vs text response handling
-- **User Agent Update**: Reflects v3.0.0-BinarySafe for identification
-
-### Improved WallpaperManager Module
-- **Corruption-Free Downloads**: Fixed binary data handling throughout
-- **Validation System**: Comprehensive file integrity checking
-- **Diagnostic Tools**: Methods to validate and debug wallpaper issues
-- **Better Error Reporting**: Clear messages for corruption or validation failures
-
-### Key Fixes in v3.0
-1. **Binary Corruption**: Fixed improper string conversion of binary data
-2. **Header Validation**: Added JPEG (0xFF 0xD8 0xFF) and PNG header checks
-3. **File Verification**: Ensured downloaded files match expected size and format
-4. **URI Mapping**: Fixed wallpaper URI lookup by filename instead of schema-key
-5. **Error Handling**: Better detection and reporting of wallpaper issues
-
-The v3.0 architecture maintains all v2.9 performance benefits while adding crucial reliability improvements for wallpaper syncing.

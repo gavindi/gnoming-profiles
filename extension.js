@@ -24,7 +24,8 @@ import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/ex
 // Import our modular components
 import { RequestQueue } from './lib/RequestQueue.js';
 import { ETagManager } from './lib/ETagManager.js';
-import { GitHubAPI } from './lib/GitHubAPI.js';
+import { GitHubProvider } from './lib/GitHubProvider.js';
+import { NextcloudProvider } from './lib/NextcloudProvider.js';
 import { FileMonitor } from './lib/FileMonitor.js';
 import { SettingsMonitor } from './lib/SettingsMonitor.js';
 import { WallpaperManager } from './lib/WallpaperManager.js';
@@ -56,7 +57,7 @@ export default class ConfigSyncExtension extends Extension {
         // Modular components
         this._requestQueue = null;
         this._etagManager = null;
-        this._githubAPI = null;
+        this._storageProvider = null;
         this._fileMonitor = null;
         this._settingsMonitor = null;
         this._wallpaperManager = null;
@@ -144,60 +145,79 @@ export default class ConfigSyncExtension extends Extension {
         // Core infrastructure
         this._requestQueue = new RequestQueue(3);
         this._etagManager = new ETagManager();
-        this._githubAPI = new GitHubAPI(this._requestQueue, this._etagManager);
-        
+
+        // Create storage provider based on settings
+        this._storageProvider = this._createStorageProvider();
+
         // Monitoring components
         this._fileMonitor = new FileMonitor();
         this._settingsMonitor = new SettingsMonitor();
-        
+
         // Management components
-        this._wallpaperManager = new WallpaperManager(this._githubAPI);
-        this._syncManager = new SyncManager(this._githubAPI, this._wallpaperManager, this._settings);
-        
+        this._wallpaperManager = new WallpaperManager(this._storageProvider);
+        this._syncManager = new SyncManager(this._storageProvider, this._wallpaperManager, this._settings);
+
         // Set up change callbacks
         this._fileMonitor.setChangeCallback((source) => this._onChangeDetected(source));
         this._settingsMonitor.setChangeCallback((source) => this._onChangeDetected(source));
-        
-        console.log('All components initialized successfully');
+
+        console.log(`All components initialized successfully (provider: ${this._storageProvider.name})`);
+    }
+
+    /**
+     * Create the appropriate storage provider based on settings
+     */
+    _createStorageProvider() {
+        const providerName = this._settings.get_string('storage-provider');
+
+        switch (providerName) {
+            case 'nextcloud':
+                console.log('Using Nextcloud storage provider');
+                return new NextcloudProvider(this._requestQueue, this._etagManager);
+            case 'github':
+            default:
+                console.log('Using GitHub storage provider');
+                return new GitHubProvider(this._requestQueue, this._etagManager);
+        }
     }
     
     /**
      * Clean up all components with proper memory management
      */
     _cleanupComponents() {
-        if (this._githubAPI) {
-            this._githubAPI.cleanup();
-            this._githubAPI = null;
+        if (this._storageProvider) {
+            this._storageProvider.cleanup();
+            this._storageProvider = null;
         }
-        
+
         if (this._fileMonitor) {
             this._fileMonitor.stopAll();
             this._fileMonitor = null;
         }
-        
+
         if (this._settingsMonitor) {
             this._settingsMonitor.stopAll();
             this._settingsMonitor = null;
         }
-        
+
         if (this._requestQueue) {
             this._requestQueue.clear();
             this._requestQueue = null;
         }
-        
+
         if (this._wallpaperManager) {
             this._wallpaperManager.destroy();
             this._wallpaperManager = null;
         }
-        
+
         if (this._syncManager) {
             this._syncManager.destroy();
             this._syncManager = null;
         }
-        
+
         // Clear remaining references
         this._etagManager = null;
-        
+
         console.log('All components cleaned up successfully');
     }
     
@@ -356,42 +376,39 @@ export default class ConfigSyncExtension extends Extension {
         if (!this._settings.get_boolean('auto-sync-on-change')) {
             return;
         }
-        
+
         this._performSyncOperation('changes', async () => {
-            await this._syncManager.syncToGitHub();
+            await this._syncManager.syncToRemote();
             return 'Change synced';
         }, true);
     }
-    
+
     /**
-     * Setup GitHub polling with ETag support
+     * Setup remote polling with ETag support
      */
     _setupGitHubPolling() {
         // Stop existing polling
         this._stopGitHubPolling();
-        
+
         const pollingEnabled = this._settings.get_boolean('github-polling-enabled');
         if (!pollingEnabled) {
             this._indicator.updatePollingStatus(false, 0);
             return;
         }
-        
+
         // Check credentials
-        const token = this._settings.get_string('github-token');
-        const repo = this._settings.get_string('github-repo');
-        const username = this._settings.get_string('github-username');
-        
-        if (!token || !repo || !username) {
-            console.warn('GitHub polling: Credentials not configured');
+        const credentials = this._storageProvider.getCredentials(this._settings);
+        if (!this._storageProvider.hasValidCredentials(credentials)) {
+            console.warn(`${this._storageProvider.name} polling: Credentials not configured`);
             this._indicator.updatePollingStatus(false, 0);
             return;
         }
-        
+
         const intervalMinutes = this._settings.get_int('github-polling-interval');
         this._isPolling = true;
-        
-        console.log(`GitHub ETag polling: Starting for ${username}/${repo} every ${intervalMinutes} minutes`);
-        
+
+        console.log(`${this._storageProvider.name} ETag polling: Starting every ${intervalMinutes} minutes`);
+
         // Start polling
         this._scheduleNextPoll(intervalMinutes * ConfigSyncExtension.SECONDS_PER_MINUTE * ConfigSyncExtension.MILLISECONDS_PER_SECOND);
         this._indicator.updatePollingStatus(true, intervalMinutes);
@@ -432,50 +449,47 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Poll GitHub for changes using ETag-based requests
+     * Poll for remote changes using the storage provider's ETag-based requests
      */
     async _pollGitHubForChanges() {
-        const token = this._settings.get_string('github-token');
-        const repo = this._settings.get_string('github-repo');
-        const username = this._settings.get_string('github-username');
-        
+        const credentials = this._storageProvider.getCredentials(this._settings);
+
         try {
-            console.log(`GitHub ETag polling: Checking ${username}/${repo} for changes...`);
-            
-            const result = await this._githubAPI.pollForChanges(username, repo, token);
-            
+            console.log(`${this._storageProvider.name} polling: Checking for changes...`);
+
+            const result = await this._storageProvider.pollForChanges(credentials);
+
             if (result.etag304) {
-                console.log('GitHub ETag polling: No changes detected (304 Not Modified)');
+                console.log(`${this._storageProvider.name} polling: No changes detected (304 Not Modified)`);
                 if (this._indicator) {
                     this._indicator.showETagEfficiency();
                 }
                 return;
             }
-            
-            if (!result.hasChanges || result.commits.length === 0) {
-                console.log('GitHub ETag polling: No commits found');
+
+            if (!result.hasChanges) {
+                console.log(`${this._storageProvider.name} polling: No changes found`);
+                // For GitHub, track the last known commit
+                if (result.commits && result.commits.length > 0) {
+                    const latestCommitSha = result.commits[0].sha;
+                    if (!this._lastKnownCommit) {
+                        this._lastKnownCommit = latestCommitSha;
+                        return;
+                    }
+                    if (this._lastKnownCommit !== latestCommitSha) {
+                        this._onRemoteChangesDetected(result.commits[0]);
+                        this._lastKnownCommit = latestCommitSha;
+                    }
+                }
                 return;
             }
-            
-            const latestCommit = result.commits[0];
-            const latestCommitSha = latestCommit.sha;
-            
-            console.log(`GitHub ETag polling: Latest commit ${latestCommitSha.substring(0, 7)}`);
-            
-            // Check for new commits
-            if (!this._lastKnownCommit) {
-                this._lastKnownCommit = latestCommitSha;
-                return;
-            }
-            
-            if (this._lastKnownCommit !== latestCommitSha) {
-                console.log(`GitHub ETag polling: New commit detected! ${latestCommitSha.substring(0, 7)}`);
-                this._onRemoteChangesDetected(latestCommit);
-                this._lastKnownCommit = latestCommitSha;
-            }
-            
+
+            // Generic change detection (Nextcloud and future providers)
+            console.log(`${this._storageProvider.name} polling: Remote changes detected!`);
+            this._onRemoteChangesDetected(null);
+
         } catch (error) {
-            console.error(`GitHub ETag polling error: ${error.message}`);
+            console.error(`${this._storageProvider.name} polling error: ${error.message}`);
         }
     }
     
@@ -484,24 +498,24 @@ export default class ConfigSyncExtension extends Extension {
      */
     _onRemoteChangesDetected(commit) {
         this._remoteChangesDetected = true;
-        
+
         if (this._indicator) {
             this._indicator.showRemoteChanges(commit);
         }
-        
+
         const autoSyncRemote = this._settings.get_boolean('auto-sync-remote-changes');
-        
+
         if (autoSyncRemote) {
-            console.log('GitHub ETag polling: Starting auto-sync of remote changes');
-            
+            console.log(`${this._storageProvider.name} polling: Starting auto-sync of remote changes`);
+
             this._performSyncOperation('remote changes', async () => {
-                const result = await this._syncManager.syncFromGitHub();
+                const result = await this._syncManager.syncFromRemote();
                 if (result && result.requiresRestore) {
                     await this._syncManager.restoreBackup(result.backupData, (enabled) => {
                         this._settingsMonitor.setEnabled(enabled);
                     });
                 }
-                
+
                 if (this._indicator) {
                     this._indicator.clearRemoteChanges();
                 }
@@ -509,7 +523,7 @@ export default class ConfigSyncExtension extends Extension {
                 return 'Remote sync complete';
             }, true);
         } else {
-            console.log('GitHub ETag polling: Auto-sync disabled, showing manual pull option');
+            console.log(`${this._storageProvider.name} polling: Auto-sync disabled, showing manual pull option`);
             if (this._indicator) {
                 this._indicator.updateStatus(_('Remote changes available - check menu to pull'));
             }
@@ -528,13 +542,13 @@ export default class ConfigSyncExtension extends Extension {
         this._isPolling = false;
         this._lastKnownCommit = null;
         this._remoteChangesDetected = false;
-        
+
         if (this._indicator) {
             this._indicator.updatePollingStatus(false, 0);
             this._indicator.clearRemoteChanges();
         }
-        
-        console.log('GitHub ETag polling stopped');
+
+        console.log('Remote polling stopped');
     }
     
     /**
@@ -562,6 +576,41 @@ export default class ConfigSyncExtension extends Extension {
         this._settings.connect('changed::trigger-initial-sync', () => {
             this._onTriggerInitialSync();
         });
+        this._settings.connect('changed::storage-provider', () => {
+            this._onStorageProviderChanged();
+        });
+    }
+
+    /**
+     * Handle storage provider change - reinitialize components
+     */
+    _onStorageProviderChanged() {
+        console.log('Storage provider changed, reinitializing components');
+        this._stopChangeMonitoring();
+        this._stopGitHubPolling();
+
+        // Clean up old provider
+        if (this._storageProvider) {
+            this._storageProvider.cleanup();
+        }
+
+        // Create new provider
+        this._storageProvider = this._createStorageProvider();
+
+        // Update dependent components
+        if (this._wallpaperManager) {
+            this._wallpaperManager.storageProvider = this._storageProvider;
+        }
+        if (this._syncManager) {
+            this._syncManager.storageProvider = this._storageProvider;
+            this._syncManager.clearCache();
+        }
+
+        // Restart monitoring and polling
+        this._setupChangeMonitoring();
+        this._setupGitHubPolling();
+
+        console.log(`Storage provider switched to ${this._storageProvider.name}`);
     }
     
     /**
@@ -578,9 +627,11 @@ export default class ConfigSyncExtension extends Extension {
                     this._requestQueue.pendingCount,
                     this._requestQueue.activeCount
                 );
-                
-                // Update ETag status
-                const etagStatus = this._etagManager.getStatus('commits');
+
+                // Update ETag status - check the appropriate key based on provider
+                const providerName = this._settings.get_string('storage-provider');
+                const etagKey = providerName === 'nextcloud' ? 'nextcloud-config' : 'commits';
+                const etagStatus = this._etagManager.getStatus(etagKey);
                 this._indicator.updateETagStatus(etagStatus.hasETag, etagStatus.lastResult);
             }
             return GLib.SOURCE_CONTINUE;
@@ -641,7 +692,7 @@ export default class ConfigSyncExtension extends Extension {
         console.log('Session login detected');
         if (this._settings.get_boolean('auto-sync-on-login')) {
             this._performSyncOperation('login', async () => {
-                const result = await this._syncManager.syncFromGitHub();
+                const result = await this._syncManager.syncFromRemote();
                 if (result && result.requiresRestore) {
                     await this._syncManager.restoreBackup(result.backupData, (enabled) => {
                         this._settingsMonitor.setEnabled(enabled);
@@ -651,7 +702,7 @@ export default class ConfigSyncExtension extends Extension {
             });
         }
     }
-    
+
     /**
      * Handle session logout
      */
@@ -659,7 +710,7 @@ export default class ConfigSyncExtension extends Extension {
         console.log('Session logout detected');
         if (this._settings.get_boolean('auto-sync-on-logout')) {
             this._performSyncOperation('logout', async () => {
-                await this._syncManager.syncToGitHub();
+                await this._syncManager.syncToRemote();
                 return 'Logout sync complete';
             });
         }
@@ -672,25 +723,22 @@ export default class ConfigSyncExtension extends Extension {
         if (!this._settings.get_boolean('trigger-initial-sync')) {
             return;
         }
-        
+
         this._settings.set_boolean('trigger-initial-sync', false);
-        
+
         console.log('Manual initial sync triggered from preferences');
-        
+
         // Check credentials
-        const token = this._settings.get_string('github-token');
-        const repo = this._settings.get_string('github-repo');
-        const username = this._settings.get_string('github-username');
-        
-        if (!token || !repo || !username) {
+        const credentials = this._storageProvider.getCredentials(this._settings);
+        if (!this._storageProvider.hasValidCredentials(credentials)) {
             if (this._indicator) {
-                this._indicator.updateStatus(_('Initial sync failed: GitHub credentials not configured'));
+                this._indicator.updateStatus(_(`Initial sync failed: ${this._storageProvider.name} credentials not configured`));
             }
             return;
         }
-        
+
         this._performSyncOperation('manual initial sync', async () => {
-            await this._syncManager.syncToGitHub();
+            await this._syncManager.syncToRemote();
             return 'Initial sync complete';
         });
     }
@@ -701,13 +749,13 @@ export default class ConfigSyncExtension extends Extension {
     _performInitialSync() {
         this._performSyncOperation('initial', async () => {
             // First restore, then backup
-            const result = await this._syncManager.syncFromGitHub();
+            const result = await this._syncManager.syncFromRemote();
             if (result && result.requiresRestore) {
                 await this._syncManager.restoreBackup(result.backupData, (enabled) => {
                     this._settingsMonitor.setEnabled(enabled);
                 });
             }
-            await this._syncManager.syncToGitHub();
+            await this._syncManager.syncToRemote();
             return 'Extension loaded';
         });
     }
@@ -719,8 +767,8 @@ export default class ConfigSyncExtension extends Extension {
     syncNow() {
         this._performSyncOperation('manual sync', async () => {
             // First backup, then restore
-            await this._syncManager.syncToGitHub();
-            const result = await this._syncManager.syncFromGitHub();
+            await this._syncManager.syncToRemote();
+            const result = await this._syncManager.syncFromRemote();
             if (result && result.requiresRestore) {
                 await this._syncManager.restoreBackup(result.backupData, (enabled) => {
                     this._settingsMonitor.setEnabled(enabled);
@@ -729,16 +777,16 @@ export default class ConfigSyncExtension extends Extension {
             return 'Manual sync complete';
         });
     }
-    
+
     syncFromRemote() {
         this._performSyncOperation('remote pull', async () => {
-            const result = await this._syncManager.syncFromGitHub();
+            const result = await this._syncManager.syncFromRemote();
             if (result && result.requiresRestore) {
                 await this._syncManager.restoreBackup(result.backupData, (enabled) => {
                     this._settingsMonitor.setEnabled(enabled);
                 });
             }
-            
+
             if (this._indicator) {
                 this._indicator.clearRemoteChanges();
             }

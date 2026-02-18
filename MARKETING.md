@@ -7,7 +7,7 @@
 ## ✨ What Makes Gnoming Profiles Special?
 
 ### 🔄 **Effortless Multi-Device Sync**
-Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, workspace preferences, dock settings, and even wallpapers automatically sync across all your GNOME devices through a secure private GitHub repository.
+Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, workspace preferences, dock settings, and even wallpapers automatically sync across all your GNOME devices through a private GitHub repository or your own self-hosted Nextcloud server.
 
 ### ⚡ **Real-Time Intelligence**
 - **Smart Change Detection**: Monitors your settings and files in real-time, automatically backing up changes as you make them
@@ -21,11 +21,17 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 - **Ubuntu Integration**: Special support for Ubuntu's unique desktop extensions and features
 - **Workspace Magic**: Your entire workspace setup, keyboard shortcuts, and window management preferences
 
+### 🌐 **Your Data, Your Way** *(NEW in v3.3)*
+- **GitHub or Nextcloud**: Choose between a private GitHub repository or your own Nextcloud server
+- **Self-Hosted Option**: Keep everything on your own infrastructure with Nextcloud/WebDAV support
+- **Switch Anytime**: Change storage providers on the fly — no restart, no data loss
+- **Simple Setup**: Just enter your server URL and app password — you're syncing in seconds
+
 ### 🔒 **Security First**
-- **Private Repository**: Your data stays in your own private GitHub repository
-- **Encrypted Storage**: Access tokens stored securely using GNOME's built-in encryption
+- **Private Storage**: Your data stays in your own private GitHub repository or self-hosted Nextcloud
+- **Encrypted Storage**: Access tokens and passwords stored securely using GNOME's built-in encryption
 - **Selective Sync**: Only sync what you choose - complete control over your data
-- **No Cloud Dependency**: Works entirely through GitHub - no third-party servers involved
+- **No Third Parties**: Works directly with GitHub or your own server — no middleman involved
 
 ## 🎯 Perfect For:
 
@@ -41,7 +47,13 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 
 ## 🚀 Key Features That Set Us Apart
 
-### **Revolutionary Performance (v3.0)**
+### **Choose Your Backend (v3.3)**
+- **GitHub**: Atomic batch commits, clean version history, familiar workflow
+- **Nextcloud**: Self-hosted, WebDAV-based, full control over your data
+- **Live Switching**: Change providers from preferences — takes effect immediately
+- **Same Experience**: Both backends support all features — settings, files, wallpapers, polling
+
+### **Revolutionary Performance**
 - **95% Bandwidth Reduction**: ETag-based polling means lightning-fast sync checks
 - **Single-Commit Batching**: All your changes upload together for clean Git history
 - **Smart Caching**: Never re-upload unchanged files
@@ -72,12 +84,15 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 
 *"Set it up once, forgot about it, and it just works. Exactly what a good tool should do."*
 
+*"Being able to use my own Nextcloud server instead of GitHub was exactly what I needed. My configs never leave my infrastructure."*
+
 ## 🔧 Simple Setup, Powerful Results
 
 1. **Install** the extension from GNOME Extensions
-2. **Connect** your private GitHub repository
-3. **Choose** what to sync (or use the smart defaults)
-4. **Relax** - your desktop setup is now immortal
+2. **Pick** your storage — GitHub or your own Nextcloud server
+3. **Connect** with a token or app password
+4. **Choose** what to sync (or use the smart defaults)
+5. **Relax** - your desktop setup is now immortal
 
 ## 🆓 Free, Open Source, Community Driven
 

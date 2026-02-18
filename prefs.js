@@ -103,15 +103,34 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             icon_name: 'preferences-system-symbolic',
         });
         window.add(page);
-        
+
+        // Storage provider selection group
+        const providerGroup = new Adw.PreferencesGroup({
+            title: _('Storage Provider'),
+            description: _('Choose where to store your synced profiles')
+        });
+        page.add(providerGroup);
+
+        const providerRow = new Adw.ComboRow({
+            title: _('Storage Backend'),
+            subtitle: _('Select which service to use for syncing your profiles'),
+            model: new Gtk.StringList()
+        });
+        providerRow.model.append(_('GitHub'));
+        providerRow.model.append(_('Nextcloud (WebDAV)'));
+
+        const currentProvider = settings.get_string('storage-provider');
+        providerRow.selected = currentProvider === 'nextcloud' ? 1 : 0;
+
+        providerGroup.add(providerRow);
+
         // GitHub settings group
         const githubGroup = new Adw.PreferencesGroup({
             title: _('GitHub Repository'),
             description: _('Configure your private GitHub repository for syncing')
         });
         page.add(githubGroup);
-        
-        // GitHub username
+
         const usernameRow = new Adw.EntryRow({
             title: _('GitHub Username'),
             text: settings.get_string('github-username')
@@ -120,8 +139,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_string('github-username', usernameRow.text);
         });
         githubGroup.add(usernameRow);
-            
-        // GitHub token
+
         const tokenRow = new Adw.PasswordEntryRow({
             title: _('Personal Access Token'),
             text: settings.get_string('github-token')
@@ -130,8 +148,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_string('github-token', tokenRow.text);
         });
         githubGroup.add(tokenRow);
-        
-        // GitHub repository
+
         const repoRow = new Adw.EntryRow({
             title: _('Repository Name'),
             text: settings.get_string('github-repo')
@@ -140,40 +157,101 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             settings.set_string('github-repo', repoRow.text);
         });
         githubGroup.add(repoRow);
-        
+
+        // Nextcloud settings group
+        const nextcloudGroup = new Adw.PreferencesGroup({
+            title: _('Nextcloud Server'),
+            description: _('Configure your Nextcloud server for WebDAV syncing')
+        });
+        page.add(nextcloudGroup);
+
+        const ncUrlRow = new Adw.EntryRow({
+            title: _('Server URL'),
+            text: settings.get_string('nextcloud-url')
+        });
+        ncUrlRow.connect('changed', () => {
+            settings.set_string('nextcloud-url', ncUrlRow.text);
+        });
+        nextcloudGroup.add(ncUrlRow);
+
+        const ncUsernameRow = new Adw.EntryRow({
+            title: _('Username'),
+            text: settings.get_string('nextcloud-username')
+        });
+        ncUsernameRow.connect('changed', () => {
+            settings.set_string('nextcloud-username', ncUsernameRow.text);
+        });
+        nextcloudGroup.add(ncUsernameRow);
+
+        const ncPasswordRow = new Adw.PasswordEntryRow({
+            title: _('App Password'),
+            text: settings.get_string('nextcloud-password')
+        });
+        ncPasswordRow.connect('changed', () => {
+            settings.set_string('nextcloud-password', ncPasswordRow.text);
+        });
+        nextcloudGroup.add(ncPasswordRow);
+
+        const ncFolderRow = new Adw.EntryRow({
+            title: _('Sync Folder'),
+            text: settings.get_string('nextcloud-folder')
+        });
+        ncFolderRow.connect('changed', () => {
+            settings.set_string('nextcloud-folder', ncFolderRow.text);
+        });
+        nextcloudGroup.add(ncFolderRow);
+
+        const ncInfoRow = new Adw.ActionRow({
+            title: _('Nextcloud Setup'),
+            subtitle: _('Generate an App Password in Nextcloud: Settings > Security > Devices & sessions')
+        });
+        nextcloudGroup.add(ncInfoRow);
+
+        // Show/hide provider groups based on selection
+        const updateProviderVisibility = () => {
+            const isGitHub = providerRow.selected === 0;
+            githubGroup.visible = isGitHub;
+            nextcloudGroup.visible = !isGitHub;
+        };
+
+        providerRow.connect('notify::selected', () => {
+            const providerValue = providerRow.selected === 1 ? 'nextcloud' : 'github';
+            settings.set_string('storage-provider', providerValue);
+            updateProviderVisibility();
+        });
+        updateProviderVisibility();
+
         // Session sync settings group
         const sessionGroup = new Adw.PreferencesGroup({
             title: _('Session Sync'),
             description: _('Configure automatic syncing during login and logout')
         });
         page.add(sessionGroup);
-        
-        // Auto sync on login
+
         const loginSyncRow = new Adw.SwitchRow({
             title: _('Auto-sync on Login'),
             subtitle: _('Automatically restore configuration when logging in')
         });
         settings.bind('auto-sync-on-login', loginSyncRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         sessionGroup.add(loginSyncRow);
-        
-        // Auto sync on logout
+
         const logoutSyncRow = new Adw.SwitchRow({
             title: _('Auto-sync on Logout'),
             subtitle: _('Automatically backup configuration when logging out')
         });
         settings.bind('auto-sync-on-logout', logoutSyncRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         sessionGroup.add(logoutSyncRow);
-        
+
         // Security info group
         const securityGroup = new Adw.PreferencesGroup({
             title: _('Security'),
             description: _('Important security information')
         });
         page.add(securityGroup);
-        
+
         const securityRow = new Adw.ActionRow({
-            title: _('🔒 Data Security'),
-            subtitle: _('• Use private GitHub repositories only\n• Personal access tokens are stored encrypted\n• Only configured files and settings are synced\n• Review your repository contents regularly\n• ETags are cached in memory only (not persisted)')
+            title: _('Data Security'),
+            subtitle: _('GitHub: Use private repositories only. Tokens stored via GSettings.\nNextcloud: Use app passwords. Data stored on your own server.\nAll providers: Only configured files and settings are synced.')
         });
         securityGroup.add(securityRow);
     }
@@ -223,7 +301,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         
         // Add options to the combo
-        syncDirectionRow.model.append(_('Backup Only (Upload to GitHub)'));
+        syncDirectionRow.model.append(_('Backup Only (Upload to Remote)'));
         syncDirectionRow.model.append(_('Backup and Restore (Bidirectional)'));
         
         // Set current selection
@@ -245,17 +323,17 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         changeSyncRow.connect('notify::active', updateChangeRowSensitivity);
         updateChangeRowSensitivity();
         
-        // ETag-based GitHub polling group
+        // ETag-based remote polling group
         const pollingGroup = new Adw.PreferencesGroup({
-            title: _('ETag-Based GitHub Polling'),
-            description: _('Efficiently check GitHub repository for remote changes using HTTP ETags')
+            title: _('ETag-Based Remote Polling'),
+            description: _('Efficiently check remote storage for changes using HTTP ETags')
         });
         page.add(pollingGroup);
         
         // Enable GitHub polling
         const pollingEnabledRow = new Adw.SwitchRow({
             title: _('Enable ETag Polling'),
-            subtitle: _('Use efficient ETag-based polling to detect changes from other devices')
+            subtitle: _('Use efficient ETag-based polling to detect remote changes from other devices')
         });
         settings.bind('github-polling-enabled', pollingEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(pollingEnabledRow);
@@ -263,7 +341,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Polling interval
         const pollingIntervalRow = new Adw.SpinRow({
             title: _('Polling Interval'),
-            subtitle: _('How often to check GitHub for changes (in minutes). ETags make frequent polling efficient.'),
+            subtitle: _('How often to check for remote changes (in minutes). ETags make frequent polling efficient.'),
             adjustment: new Gtk.Adjustment({
                 lower: 1,
                 upper: ConfigSyncPreferences.MAX_POLLING_INTERVAL_MINUTES, // Max 24 hours
@@ -372,8 +450,8 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         initGroup.add(initSyncRow);
         
         const initWarningRow = new Adw.ActionRow({
-            title: _('⚠️ Important'),
-            subtitle: _('Make sure GitHub credentials are configured before initializing. Check the panel menu and logs for status updates.')
+            title: _('Important'),
+            subtitle: _('Make sure your storage provider credentials are configured before initializing. Check the panel menu and logs for status updates.')
         });
         initGroup.add(initWarningRow);
     }
@@ -403,7 +481,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Wallpaper info row
         const wallpaperInfoRow = new Adw.ActionRow({
             title: _('📁 Wallpaper Storage'),
-            subtitle: _('Wallpapers stored in ~/.local/share/gnoming-profiles/wallpapers/\nUploaded to wallpapers/ folder in GitHub repository')
+            subtitle: _('Wallpapers stored in ~/.local/share/gnoming-profiles/wallpapers/\nUploaded to wallpapers/ folder in remote storage')
         });
         wallpaperGroup.add(wallpaperInfoRow);
         
@@ -665,13 +743,13 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Extension info group
         const infoGroup = new Adw.PreferencesGroup({
             title: _('Gnoming Profiles'),
-            description: _('Automatic GNOME configuration sync via GitHub with ETag-based polling')
+            description: _('Automatic GNOME configuration sync via GitHub or Nextcloud with ETag-based polling')
         });
         page.add(infoGroup);
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.0.4')
+            subtitle: _('3.3.0')
         });
         infoGroup.add(versionRow);
         
@@ -689,7 +767,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const descriptionRow = new Adw.ActionRow({
             title: _('Description'),
-            subtitle: _('Automatically syncs your GNOME settings and configuration files to a private GitHub repository with real-time monitoring, high-performance batching, intelligent request management, and ultra-efficient ETag-based polling.')
+            subtitle: _('Automatically syncs your GNOME settings and configuration files to GitHub or Nextcloud with real-time monitoring, high-performance batching, intelligent request management, and ultra-efficient ETag-based polling.')
         });
         infoGroup.add(descriptionRow);
         
@@ -743,41 +821,35 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v330Row = new Adw.ActionRow({
+            title: _('v3.3.0'),
+            subtitle: _('Nextcloud/WebDAV storage backend, StorageProvider abstraction layer, live provider switching')
+        });
+        changelogGroup.add(v330Row);
+
         const v304Row = new Adw.ActionRow({
-            title: _('v3.0.4 (Current - Default Branch Detection)'),
-            subtitle: _('• FIXED: Auto-detect repository default branch instead of hardcoding \"main\"\\n• NEW: Added getDefaultBranch() to GitHubAPI with per-session caching')
+            title: _('v3.0.4'),
+            subtitle: _('Auto-detect repository default branch instead of hardcoding "main"')
         });
         changelogGroup.add(v304Row);
 
         const v303Row = new Adw.ActionRow({
-            title: _('v3.0.3 (GNOME 49 Support)'),
-            subtitle: _('• NEW: Added GNOME Shell 49 support')
+            title: _('v3.0.3'),
+            subtitle: _('Added GNOME Shell 49 support')
         });
         changelogGroup.add(v303Row);
 
         const v302Row = new Adw.ActionRow({
-            title: _('v3.0.2 (Code Cleanup)'),
-            subtitle: _('• REFACTOR: Removed 27 unused functions and methods for improved maintainability\n• IMPROVED: Utils class cleanup - Removed 15 unused utility functions\n• ENHANCED: Module cleanup - Removed unused diagnostic and debug methods\n• STREAMLINED: Better focus on production functionality\n• MAINTAINED: All core functionality preserved during cleanup')
+            title: _('v3.0.2'),
+            subtitle: _('Removed 42 unused functions and methods, template literal standardisation')
         });
         changelogGroup.add(v302Row);
-        
+
         const v301Row = new Adw.ActionRow({
-            title: _('v3.0.1 (Semantic Logging)'),
-            subtitle: _('• IMPROVED: Semantic Console Logging - Replaced log() with console.* methods\n• ENHANCED: Better debugging with console.log/warn/error distinction\n• FIXED: HTTP Session Cleanup - Proper abort() calls in GitHubAPI\n• FIXED: Enhanced timeout management across all modules')
+            title: _('v3.0.1'),
+            subtitle: _('Semantic console logging, HTTP session cleanup, enhanced timeout management')
         });
         changelogGroup.add(v301Row);
-        
-        const v30Row = new Adw.ActionRow({
-            title: _('v3.0 (Enhanced Memory Management)'),
-            subtitle: _('• CRITICAL FIX: Wallpaper Corruption Bug - Complete rewrite of binary file handling\n• ENHANCED: Timer and Memory Management - Proper cleanup of all timeouts and references\n• IMPROVED: Resource Management - Better lifecycle management for all components\n• FIXED: Memory Leaks - Proper nullification of references and cleanup of event handlers\n• ADDED: Destroy Methods - All components now have proper cleanup methods\n• ENHANCED: Error Handling - Better error recovery and resource cleanup')
-        });
-        changelogGroup.add(v30Row);
-        
-        const v29Row = new Adw.ActionRow({
-            title: _('v2.9 (ETag Polling & Performance)'),
-            subtitle: _('• NEW: ETag-Based GitHub Polling - Ultra-efficient change detection\n• NEW: GitHub Tree API Batching - All files uploaded in single commits\n• NEW: Request Queue Management - Intelligent concurrency control\n• NEW: Smart Caching System - SHA-256 based change detection\n• PERFORMANCE: 60-80% faster sync + 95% bandwidth reduction')
-        });
-        changelogGroup.add(v29Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({
