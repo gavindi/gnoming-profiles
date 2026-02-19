@@ -2,6 +2,20 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.3.4] - 2026-02-20
+
+### Changed
+- **Google Drive authentication via GNOME Online Accounts (GOA)** — replaced manual OAuth2 flow (Client ID/Secret, PKCE loopback server) with system-managed GOA authentication
+- **Multi-account support** — account selector dropdown in preferences allows choosing which Google account to use for Drive sync
+- Removed `gdrive-client-id`, `gdrive-client-secret`, `gdrive-refresh-token` GSettings keys; added `gdrive-goa-account-id`
+- Removed `Soup` dependency from preferences (no longer needed for token exchange)
+- Google Drive preferences UI simplified: account dropdown, "Open Online Accounts" button, folder name
+- Security info updated to reflect GOA-managed token storage
+
+### Removed
+- OAuth2 PKCE loopback server and all manual token management code
+- Google Cloud Console credential setup requirement — users now just need a Google account in GNOME Settings with "Files" enabled
+
 ## [v3.3.3] - 2026-02-19
 
 ### Fixed

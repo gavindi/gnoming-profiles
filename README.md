@@ -12,7 +12,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 
 - **Multiple Storage Backends**: Sync to GitHub, Nextcloud/WebDAV, or Google Drive (v3.3+)
 - **Live Provider Switching**: Change storage backend without restarting the extension
-- **Google Drive with OAuth2**: Secure PKCE authorization flow with your own Google Cloud credentials (v3.3.2+)
+- **Google Drive with GNOME Online Accounts**: Seamless authentication via GOA with multi-account support (v3.3.4+)
 - **Automatic Sync**: Backup on logout, restore on login
 - **Real-time Change Monitoring**: Automatically sync when files or settings change
 - **Remote Polling**: Efficient change detection with ETag or modifiedTime-based polling
@@ -51,7 +51,7 @@ The extension features a completely modular architecture with clean separation o
 - **StorageProvider**: Abstract base class defining the storage backend contract
 - **GitHubProvider**: GitHub backend — Tree API batching, Content API, ETag polling
 - **NextcloudProvider**: Nextcloud/WebDAV backend — PUT/GET/PROPFIND/MKCOL, ETag polling
-- **GoogleDriveProvider**: Google Drive backend — OAuth2, path-to-ID resolution, multipart upload, modifiedTime polling
+- **GoogleDriveProvider**: Google Drive backend — GOA authentication, path-to-ID resolution, multipart upload, modifiedTime polling
 
 ### Core Modules
 - **RequestQueue**: Manages API concurrency and rate limiting
@@ -150,12 +150,10 @@ Open extension preferences, select your storage provider, and configure its cred
 3. Optionally change the sync folder name (default: `.gnoming-profiles`)
 
 ### Google Drive
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) > APIs & Services > Credentials
-2. Create an OAuth2 Client ID (Desktop app type)
-3. Add `http://127.0.0.1:39587` as an authorized redirect URI
-4. Enter your Client ID and Client Secret in the extension preferences
-5. Click **Authorize** — this opens your browser for Google login
-6. Optionally change the Drive folder name (default: `.gnoming-profiles`)
+1. Add your Google account in **GNOME Settings > Online Accounts**
+2. Ensure **Files** is enabled for the account
+3. Select the account in the extension preferences dropdown
+4. Optionally change the Drive folder name (default: `.gnoming-profiles`)
 
 ### Common Settings
 - Which GSettings schemas to monitor and sync
@@ -400,8 +398,8 @@ wallpapers/                 # Optional: Only if wallpaper sync enabled
 
 - **Private Storage**: GitHub uses private repos; Nextcloud and Google Drive use your own account
 - **Encrypted Credential Storage**: Tokens and passwords stored encrypted by GNOME GSettings
-- **Minimal Permissions**: GitHub uses `repo` scope; Google Drive uses `drive.file` scope (app-created files only)
-- **OAuth2 Best Practices**: Google Drive uses PKCE (Proof Key for Code Exchange) for secure authorization
+- **Minimal Permissions**: GitHub uses `repo` scope; Google Drive uses system-managed GOA tokens
+- **GNOME Online Accounts**: Google Drive authentication managed securely by the system — no manual credentials required
 - **Selective Sync**: Only configured schemas and files are monitored and synced
 - **Text-only**: Binary files are automatically detected and skipped (except wallpapers)
 - **Polling Cache Security**: ETags and timestamps stored in memory only (not persisted to disk)
@@ -486,13 +484,13 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 3. Ensure polling is enabled in preferences
 4. Check network connectivity to your storage provider
 5. Review polling interval (too frequent may hit rate limits on GitHub)
-6. For Google Drive: ensure your OAuth2 authorization is valid (re-authorize if needed)
+6. For Google Drive: ensure your Google account is properly configured in GNOME Online Accounts with Files enabled
 
 ### Google Drive Authorization Issues
-1. **"Unable to connect" in browser**: Ensure no other application is using port 39587
-2. **Authorization timeout**: The loopback server times out after 120 seconds — try again
-3. **"invalid_grant" errors**: Your refresh token has expired — click "Re-authorize" in preferences
-4. **Credentials not working**: Verify Client ID and Secret are correct; ensure the OAuth consent screen is configured for Desktop app type
+1. **No Google accounts found**: Add your Google account in GNOME Settings > Online Accounts
+2. **"Files disabled" warning**: Enable the "Files" toggle for your Google account in GNOME Settings > Online Accounts
+3. **Authentication errors**: Remove and re-add your Google account in GNOME Settings > Online Accounts
+4. **Multiple accounts**: Select the correct account from the dropdown in extension preferences
 
 ### Empty config-backup.json or 0 Schemas Detected
 1. Use the **"Initialize Sync"** button in Preferences → Sync tab
@@ -525,11 +523,27 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ## Requirements
 
 - GNOME Shell 45+
+- **GNOME Online Accounts GIR** (`gir1.2-goa-1.0`) — required for Google Drive support
 - One of the following storage backends:
   - **GitHub**: Account with a private repository and Personal Access Token (`repo` scope)
   - **Nextcloud**: Server with WebDAV access and an App Password
-  - **Google Drive**: Google account with OAuth2 credentials from [Google Cloud Console](https://console.cloud.google.com/)
+  - **Google Drive**: Google account configured in GNOME Online Accounts with "Files" enabled
 - Write access to monitored configuration files
+
+### Installing the GOA dependency
+
+The GNOME Online Accounts typelib is pre-installed on most GNOME desktops. If it is missing (e.g. on a minimal install), install it with:
+
+```bash
+# Debian / Ubuntu
+sudo apt install gir1.2-goa-1.0
+
+# Fedora
+sudo dnf install gnome-online-accounts
+
+# Arch Linux
+sudo pacman -S gnome-online-accounts
+```
 
 **Note**: Ubuntu-specific schemas (ubuntu-dock, ubuntu-appindicators, etc.) are only synced when the corresponding extensions are installed and active. The extension gracefully handles missing schemas without errors.
 

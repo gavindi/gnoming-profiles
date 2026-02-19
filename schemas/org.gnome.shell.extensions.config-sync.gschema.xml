@@ -41,20 +41,10 @@
       <summary>GitHub Personal Access Token</summary>
       <description>Personal access token with repo permissions</description>
     </key>
-    <key name="gdrive-client-id" type="s">
+    <key name="gdrive-goa-account-id" type="s">
       <default>""</default>
-      <summary>Google Drive OAuth2 Client ID</summary>
-      <description>OAuth2 Client ID from Google Cloud Console (Desktop app type)</description>
-    </key>
-    <key name="gdrive-client-secret" type="s">
-      <default>""</default>
-      <summary>Google Drive OAuth2 Client Secret</summary>
-      <description>OAuth2 Client Secret from Google Cloud Console</description>
-    </key>
-    <key name="gdrive-refresh-token" type="s">
-      <default>""</default>
-      <summary>Google Drive Refresh Token</summary>
-      <description>OAuth2 refresh token obtained during authorization flow</description>
+      <summary>Google Drive GOA Account ID</summary>
+      <description>GNOME Online Account ID for Google Drive sync. Empty = auto-select first available.</description>
     </key>
     <key name="gdrive-folder-name" type="s">
       <default>".gnoming-profiles"</default>

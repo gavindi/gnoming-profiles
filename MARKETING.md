@@ -24,13 +24,13 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 ### 🌐 **Three Storage Backends — Your Data, Your Way**
 - **GitHub**: Private repository with atomic commits and clean version history
 - **Nextcloud**: Self-hosted WebDAV — keep everything on your own infrastructure
-- **Google Drive**: Secure OAuth2 with PKCE — bring your own Google Cloud credentials
+- **Google Drive**: Seamless GNOME Online Accounts integration — just pick your Google account and go
 - **Switch Anytime**: Change storage providers on the fly — no restart, no data loss
 
 ### 🔒 **Security First**
 - **Private Storage**: GitHub uses private repos; Nextcloud and Google Drive use your own account
-- **Encrypted Credentials**: Tokens, passwords, and OAuth2 tokens stored securely via GNOME GSettings
-- **Minimal Permissions**: GitHub uses `repo` scope; Google Drive uses `drive.file` (only app-created files)
+- **Encrypted Credentials**: Tokens and passwords stored securely via GNOME GSettings
+- **System-Managed Auth**: Google Drive uses GNOME Online Accounts — tokens managed by your desktop, not the extension
 - **Selective Sync**: Only sync what you choose — complete control over your data
 - **No Third Parties**: Works directly with your chosen provider — no middleman involved
 
@@ -51,7 +51,7 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 ### **Choose Your Backend**
 - **GitHub**: Atomic batch commits via Tree API, clean version history, familiar Git workflow
 - **Nextcloud**: Self-hosted WebDAV, full control over your data, no third-party accounts needed
-- **Google Drive**: Secure OAuth2 with PKCE — supply your own credentials from Google Cloud Console
+- **Google Drive**: Uses your existing GNOME Online Account — no API keys or developer setup needed
 - **Live Switching**: Change providers from preferences — takes effect immediately
 - **Same Experience**: All three backends support every feature — settings, files, wallpapers, polling
 
@@ -62,7 +62,7 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 - **Memory Optimized**: Comprehensive resource management prevents system slowdowns
 
 ### **Smart Intelligence**
-- **Google Drive with PKCE**: Secure OAuth2 flow — add your credentials, click Authorize, and go
+- **Google Drive Made Easy**: Just select your Google account from the dropdown — no credentials to manage
 - **Auto-Discovery**: Automatically detects and syncs relevant GNOME settings
 - **Smart Defaults**: Works perfectly out of the box with sensible presets
 - **Wallpaper Magic**: Automatically handles wallpaper files without corruption
@@ -72,7 +72,7 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 - **Binary-Safe Technology**: Wallpapers and files sync without corruption across all providers
 - **Atomic Operations**: All changes succeed or fail together — no partial syncs
 - **Error Recovery**: Robust handling of network issues, expired tokens, and conflicts
-- **Token Auto-Refresh**: Google Drive access tokens refresh automatically; expired refresh tokens prompt re-authorization
+- **Token Auto-Refresh**: Google Drive tokens managed automatically by GNOME Online Accounts
 - **Resource Clean**: Proper cleanup of sessions, tokens, and caches on extension disable
 
 ### **Visual Feedback**
@@ -90,13 +90,13 @@ Set up your desktop once, enjoy it everywhere. Your themes, keyboard shortcuts, 
 
 *"Being able to use my own Nextcloud server instead of GitHub was exactly what I needed. My configs never leave my infrastructure."*
 
-*"Google Drive setup was straightforward. Add my credentials, authorize, done. All my settings syncing in seconds."*
+*"Google Drive setup couldn't be easier — I already had my Google account in GNOME Settings, just picked it from the dropdown and everything started syncing."*
 
 ## 🔧 Simple Setup, Powerful Results
 
 1. **Install** the extension from GNOME Extensions
 2. **Pick** your storage — GitHub, Nextcloud, or Google Drive
-3. **Connect** — enter a token, app password, or your Google Cloud OAuth2 credentials
+3. **Connect** — enter a token, app password, or pick your Google account
 4. **Choose** what to sync (or use the smart defaults)
 5. **Relax** — your desktop setup is now immortal
 

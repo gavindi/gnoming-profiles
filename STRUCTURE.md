@@ -25,7 +25,7 @@ gnoming-profiles/
 │   ├── StorageProvider.js         # Abstract storage backend interface
 │   ├── GitHubProvider.js          # GitHub storage backend (Tree API)
 │   ├── NextcloudProvider.js       # Nextcloud/WebDAV storage backend
-│   ├── GoogleDriveProvider.js     # Google Drive storage backend (OAuth2)
+│   ├── GoogleDriveProvider.js     # Google Drive storage backend (GOA)
 │   ├── GitHubAPI.js               # Low-level GitHub REST API client
 │   ├── RequestQueue.js            # API request concurrency management
 │   ├── ETagManager.js             # ETag caching for efficient polling
@@ -45,7 +45,7 @@ gnoming-profiles/
 ### Core Extension Files
 
 - **`extension.js`**: Main extension class — orchestrates all modules, creates the active storage provider via factory method, handles GNOME Shell lifecycle (enable/disable), session sync, polling, and live provider switching
-- **`prefs.js`**: Preferences window — Adwaita tabbed UI (General, Sync, Content, Help, About) with provider selection dropdown and conditional GitHub/Nextcloud/Google Drive settings, includes OAuth2 loopback flow for Google Drive authorization
+- **`prefs.js`**: Preferences window — Adwaita tabbed UI (General, Sync, Content, Help, About) with provider selection dropdown and conditional GitHub/Nextcloud/Google Drive settings, GOA account selector for Google Drive
 - **`metadata.json`**: Extension metadata — name, UUID, version, GNOME Shell compatibility
 - **`stylesheet.css`**: CSS animations and styling for panel indicator states (syncing, monitoring, change detected)
 
@@ -54,7 +54,7 @@ gnoming-profiles/
 - **`StorageProvider.js`**: Abstract base class defining the storage backend contract — `uploadBatch`, `downloadFile`, `downloadBinaryFile`, `listDirectory`, `pollForChanges`, `getCredentials`, `hasValidCredentials`, `clearChangeCache`
 - **`GitHubProvider.js`**: GitHub backend — atomic batch uploads via Tree API (blobs → tree → commit → ref), Content API downloads, binary support, ETag polling via commits endpoint, auto-detection of default branch
 - **`NextcloudProvider.js`**: Nextcloud/WebDAV backend — file operations via PUT/GET/PROPFIND/MKCOL over Soup.Session, basic auth, incremental directory creation, PROPFIND XML parsing, ETag change detection
-- **`GoogleDriveProvider.js`**: Google Drive backend — OAuth2 token management with PKCE, path-to-ID resolution cache for Drive's ID-based file system, multipart upload (`multipart/related`), `modifiedTime`-based polling, automatic folder creation
+- **`GoogleDriveProvider.js`**: Google Drive backend — GNOME Online Accounts (GOA) authentication with multi-account support, path-to-ID resolution cache for Drive's ID-based file system, multipart upload (`multipart/related`), `modifiedTime`-based polling, automatic folder creation
 - **`GitHubAPI.js`**: Low-level GitHub REST API client — used internally by GitHubProvider for HTTP requests, ETag headers, Tree API, and binary downloads
 
 ### Infrastructure Modules (`lib/`)
@@ -82,7 +82,7 @@ gnoming-profiles/
 
 ### Configuration
 
-- **`schemas/*.gschema.xml`**: GSettings schema — storage provider selection, GitHub credentials, Nextcloud credentials (URL, username, app password, folder), Google Drive credentials (OAuth2 client ID/secret, refresh token, folder name), sync options, monitored schemas and files
+- **`schemas/*.gschema.xml`**: GSettings schema — storage provider selection, GitHub credentials, Nextcloud credentials (URL, username, app password, folder), Google Drive settings (GOA account ID, folder name), sync options, monitored schemas and files
 - **`Makefile`**: Build automation — `make install`, `make dist`, `make clean`
 
 ## Module Dependencies

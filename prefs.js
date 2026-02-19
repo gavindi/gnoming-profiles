@@ -20,7 +20,7 @@ import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import Soup from 'gi://Soup';
+import Goa from 'gi://Goa';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class ConfigSyncPreferences extends ExtensionPreferences {
@@ -69,13 +69,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
      */
     _cleanup() {
         console.log('ConfigSyncPreferences: Starting cleanup');
-
-        // Stop any pending OAuth server
-        if (this._gdriveOAuthServer) {
-            this._gdriveOAuthServer.stop();
-            this._gdriveOAuthServer.close();
-            this._gdriveOAuthServer = null;
-        }
 
         // Clear all active timeouts
         for (const timeoutId of this._activeTimeouts) {
@@ -213,31 +206,91 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         nextcloudGroup.add(ncInfoRow);
 
-        // Google Drive settings group
+        // Google Drive settings group (GOA-based)
         const gdriveGroup = new Adw.PreferencesGroup({
             title: _('Google Drive'),
-            description: _('Configure Google Drive for syncing via OAuth2')
+            description: _('Uses your GNOME Online Account for Google Drive access'),
         });
         page.add(gdriveGroup);
 
-        const gdriveClientIdRow = new Adw.EntryRow({
-            title: _('Client ID'),
-            text: settings.get_string('gdrive-client-id'),
-        });
-        gdriveClientIdRow.connect('changed', () => {
-            settings.set_string('gdrive-client-id', gdriveClientIdRow.text);
-        });
-        gdriveGroup.add(gdriveClientIdRow);
+        // Enumerate Google accounts from GOA
+        let googleAccounts = [];
+        try {
+            const goaClient = Goa.Client.new_sync(null);
+            const allAccounts = goaClient.get_accounts();
 
-        const gdriveClientSecretRow = new Adw.PasswordEntryRow({
-            title: _('Client Secret'),
-            text: settings.get_string('gdrive-client-secret'),
-        });
-        gdriveClientSecretRow.connect('changed', () => {
-            settings.set_string('gdrive-client-secret', gdriveClientSecretRow.text);
-        });
-        gdriveGroup.add(gdriveClientSecretRow);
+            for (const obj of allAccounts) {
+                const account = obj.get_account();
+                if (account.provider_type !== 'google') continue;
 
+                googleAccounts.push({
+                    id: account.id,
+                    identity: account.identity,
+                    filesDisabled: account.files_disabled,
+                });
+            }
+        } catch (e) {
+            console.error(`ConfigSyncPreferences: Failed to enumerate GOA accounts: ${e.message}`);
+        }
+
+        // Account selection ComboRow
+        const accountModel = new Gtk.StringList();
+        for (const acc of googleAccounts) {
+            const suffix = acc.filesDisabled ? _(' (Files disabled)') : '';
+            accountModel.append(`${acc.identity}${suffix}`);
+        }
+        if (googleAccounts.length === 0) {
+            accountModel.append(_('No Google accounts found'));
+        }
+
+        const gdriveAccountRow = new Adw.ComboRow({
+            title: _('Google Account'),
+            subtitle: _('Select which Google account to use for Drive sync'),
+            model: accountModel,
+            sensitive: googleAccounts.length > 0,
+        });
+
+        // Set current selection from settings
+        const currentAccountId = settings.get_string('gdrive-goa-account-id');
+        if (currentAccountId && googleAccounts.length > 0) {
+            const idx = googleAccounts.findIndex(a => a.id === currentAccountId);
+            if (idx >= 0) {
+                gdriveAccountRow.selected = idx;
+            }
+        }
+
+        gdriveAccountRow.connect('notify::selected', () => {
+            if (googleAccounts.length > 0 && gdriveAccountRow.selected < googleAccounts.length) {
+                const selected = googleAccounts[gdriveAccountRow.selected];
+                settings.set_string('gdrive-goa-account-id', selected.id);
+            }
+        });
+        gdriveGroup.add(gdriveAccountRow);
+
+        // Button to open GNOME Online Accounts settings
+        const goaRow = new Adw.ActionRow({
+            title: _('Account Management'),
+            subtitle: _('Add or manage Google accounts in GNOME Settings'),
+        });
+        const goaButton = new Gtk.Button({
+            label: _('Open Online Accounts'),
+            valign: Gtk.Align.CENTER,
+        });
+        goaButton.connect('clicked', () => {
+            try {
+                Gio.AppInfo.launch_default_for_uri('gnome-control-center://online-accounts', null);
+            } catch (e) {
+                try {
+                    GLib.spawn_command_line_async('gnome-control-center online-accounts');
+                } catch (e2) {
+                    console.error(`ConfigSyncPreferences: Failed to open GNOME Settings: ${e2.message}`);
+                }
+            }
+        });
+        goaRow.add_suffix(goaButton);
+        gdriveGroup.add(goaRow);
+
+        // Folder name
         const gdriveFolderRow = new Adw.EntryRow({
             title: _('Drive Folder Name'),
             text: settings.get_string('gdrive-folder-name'),
@@ -247,33 +300,10 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         gdriveGroup.add(gdriveFolderRow);
 
-        const gdriveAuthRow = new Adw.ActionRow({
-            title: _('Authorization'),
-            subtitle: settings.get_string('gdrive-refresh-token')
-                ? _('Authorized')
-                : _('Not authorized'),
-        });
-
-        const gdriveAuthButton = new Gtk.Button({
-            label: settings.get_string('gdrive-refresh-token')
-                ? _('Re-authorize')
-                : _('Authorize'),
-            valign: Gtk.Align.CENTER,
-            css_classes: ['suggested-action'],
-        });
-
-        gdriveAuthButton.connect('clicked', () => {
-            gdriveAuthButton.sensitive = false;
-            gdriveAuthButton.label = _('Waiting...');
-            this._performGDriveOAuth(settings, gdriveAuthRow, gdriveAuthButton);
-        });
-
-        gdriveAuthRow.add_suffix(gdriveAuthButton);
-        gdriveGroup.add(gdriveAuthRow);
-
+        // Setup info
         const gdriveSetupInfoRow = new Adw.ActionRow({
-            title: _('Credentials Setup'),
-            subtitle: _('1. Go to Google Cloud Console > APIs & Services > Credentials\n2. Create OAuth2 Client ID (Desktop app type)\n3. Add http://127.0.0.1:39587 as authorized redirect URI\n4. Enter Client ID and Secret above, then click Authorize'),
+            title: _('Setup'),
+            subtitle: _('1. Add your Google account in GNOME Settings > Online Accounts\n2. Ensure "Files" is enabled for the account\n3. Select the account above\n\nRequires gir1.2-goa-1.0 or gnome-online-accounts package — see README for install instructions'),
         });
         gdriveGroup.add(gdriveSetupInfoRow);
 
@@ -329,7 +359,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
 
         const securityRow = new Adw.ActionRow({
             title: _('Data Security'),
-            subtitle: _('GitHub: Use private repositories only. Tokens stored via GSettings.\nNextcloud: Use app passwords. Data stored on your own server.\nGoogle Drive: Uses drive.file scope (only app-created files). Tokens stored via GSettings.\nAll providers: Only configured files and settings are synced.')
+            subtitle: _('GitHub: Use private repositories only. Tokens stored via GSettings.\nNextcloud: Use app passwords. Data stored on your own server.\nGoogle Drive: Uses GNOME Online Accounts for secure authentication. Tokens managed by the system.\nAll providers: Only configured files and settings are synced.')
         });
         securityGroup.add(securityRow);
     }
@@ -827,7 +857,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.3.3')
+            subtitle: _('3.3.4')
         });
         infoGroup.add(versionRow);
         
@@ -899,6 +929,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v334Row = new Adw.ActionRow({
+            title: _('v3.3.4'),
+            subtitle: _('Google Drive authentication via GNOME Online Accounts (GOA) with multi-account support')
+        });
+        changelogGroup.add(v334Row);
+
         const v333Row = new Adw.ActionRow({
             title: _('v3.3.3'),
             subtitle: _('Fixed Google Drive polling not detecting remote changes across devices')
@@ -907,7 +943,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
 
         const v332Row = new Adw.ActionRow({
             title: _('v3.3.2'),
-            subtitle: _('Google Drive storage backend with OAuth2 authorization')
+            subtitle: _('Google Drive storage backend with GNOME Online Accounts authentication')
         });
         changelogGroup.add(v332Row);
 
@@ -954,225 +990,4 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         helpGroup.add(performanceNoticeRow);
     }
 
-    // ── Google Drive OAuth2 loopback flow ────────────────────────────
-
-    static GDRIVE_OAUTH_PORT = 39587;
-    static GDRIVE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-    static GDRIVE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-    static GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-    static GDRIVE_OAUTH_TIMEOUT_MS = 120000;
-
-    static _generatePKCE() {
-        // Generate 32 random bytes for the code verifier
-        const randomBytes = new Uint8Array(32);
-        for (let i = 0; i < 32; i++) {
-            randomBytes[i] = GLib.random_int_range(0, 256);
-        }
-        // Base64url-encode (no padding) to get the verifier
-        const verifier = GLib.base64_encode(randomBytes)
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-
-        // SHA-256 hash the verifier, then base64url-encode for the challenge
-        const checksum = GLib.Checksum.new(GLib.ChecksumType.SHA256);
-        checksum.update(new TextEncoder().encode(verifier));
-        const digest = checksum.get_string();
-        // Convert hex digest to bytes, then base64url-encode
-        const hashBytes = new Uint8Array(digest.length / 2);
-        for (let i = 0; i < digest.length; i += 2) {
-            hashBytes[i / 2] = parseInt(digest.substring(i, i + 2), 16);
-        }
-        const challenge = GLib.base64_encode(hashBytes)
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-
-        return {verifier, challenge};
-    }
-
-    _performGDriveOAuth(settings, statusRow, authButton) {
-        const clientId = settings.get_string('gdrive-client-id');
-        const clientSecret = settings.get_string('gdrive-client-secret');
-
-        if (!clientId || !clientSecret) {
-            statusRow.subtitle = _('Please enter Client ID and Client Secret first');
-            authButton.sensitive = true;
-            authButton.label = _('Authorize');
-            return;
-        }
-
-        const port = ConfigSyncPreferences.GDRIVE_OAUTH_PORT;
-        const redirectUri = `http://127.0.0.1:${port}`;
-
-        // Generate PKCE code verifier and challenge
-        const pkce = ConfigSyncPreferences._generatePKCE();
-        this._gdriveCodeVerifier = pkce.verifier;
-
-        try {
-            // Use Gio.SocketService for the loopback server (reliable across libsoup versions)
-            const socketService = new Gio.SocketService();
-            socketService.add_inet_port(port, null);
-            this._gdriveOAuthServer = socketService;
-
-            const codeVerifier = this._gdriveCodeVerifier;
-            socketService.connect('incoming', (_service, connection) => {
-                this._handleOAuthConnection(
-                    connection, clientId, clientSecret, codeVerifier, redirectUri, settings, statusRow, authButton, socketService
-                );
-                return true;
-            });
-
-            socketService.start();
-            statusRow.subtitle = _('Waiting for authorization in browser...');
-
-            // Build auth URL and open browser
-            const authUrl = `${ConfigSyncPreferences.GDRIVE_AUTH_URL}?` +
-                `client_id=${encodeURIComponent(clientId)}&` +
-                `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-                `response_type=code&` +
-                `scope=${encodeURIComponent(ConfigSyncPreferences.GDRIVE_SCOPE)}&` +
-                `access_type=offline&prompt=consent&` +
-                `code_challenge=${encodeURIComponent(pkce.challenge)}&` +
-                `code_challenge_method=S256`;
-
-            Gio.AppInfo.launch_default_for_uri(authUrl, null);
-
-            // Timeout: auto-stop server after 120 seconds
-            const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ConfigSyncPreferences.GDRIVE_OAUTH_TIMEOUT_MS, () => {
-                if (this._gdriveOAuthServer === socketService) {
-                    socketService.stop();
-                    socketService.close();
-                    this._gdriveOAuthServer = null;
-                    statusRow.subtitle = _('Authorization timed out. Please try again.');
-                    authButton.sensitive = true;
-                    authButton.label = _('Authorize');
-                }
-                this._removeActiveTimeout(timeoutId);
-                return GLib.SOURCE_REMOVE;
-            });
-            this._addActiveTimeout(timeoutId);
-        } catch (e) {
-            console.error(`ConfigSyncPreferences: OAuth server error: ${e.message}`);
-            statusRow.subtitle = _(`Failed to start authorization server: ${e.message}`);
-            authButton.sensitive = true;
-            authButton.label = _('Authorize');
-            this._gdriveOAuthServer = null;
-        }
-    }
-
-    _handleOAuthConnection(connection, clientId, clientSecret, codeVerifier, redirectUri, settings, statusRow, authButton, socketService) {
-        const inputStream = connection.get_input_stream();
-        const outputStream = connection.get_output_stream();
-
-        // Read the HTTP request
-        inputStream.read_bytes_async(4096, GLib.PRIORITY_DEFAULT, null, (_stream, result) => {
-            try {
-                const bytes = inputStream.read_bytes_finish(result);
-                const requestText = new TextDecoder().decode(bytes.get_data());
-
-                // Parse the GET request to extract query parameters
-                const firstLine = requestText.split('\r\n')[0] || '';
-                const urlMatch = firstLine.match(/GET\s+(\S+)/);
-                if (!urlMatch) return;
-
-                const requestUrl = urlMatch[1];
-                const queryString = requestUrl.split('?')[1] || '';
-                const params = {};
-                for (const pair of queryString.split('&')) {
-                    const [key, value] = pair.split('=');
-                    if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || '');
-                }
-
-                let responseHtml;
-                if (params.code) {
-                    responseHtml = '<html><body style="font-family:sans-serif;text-align:center;padding:40px">' +
-                        '<h1>Authorization Successful</h1>' +
-                        '<p>You can close this tab and return to the extension preferences.</p></body></html>';
-
-                    this._exchangeGDriveCodeForTokens(
-                        clientId, clientSecret, codeVerifier, params.code, redirectUri, settings, statusRow, authButton
-                    );
-                } else if (params.error) {
-                    responseHtml = `<html><body style="font-family:sans-serif;text-align:center;padding:40px">` +
-                        `<h1>Authorization Failed</h1><p>${params.error}</p></body></html>`;
-                    statusRow.subtitle = _(`Authorization failed: ${params.error}`);
-                    authButton.sensitive = true;
-                    authButton.label = _('Authorize');
-                } else {
-                    responseHtml = '<html><body><p>Unexpected request</p></body></html>';
-                }
-
-                // Send HTTP response
-                const responseBody = new TextEncoder().encode(responseHtml);
-                const httpResponse = `HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: ${responseBody.length}\r\nConnection: close\r\n\r\n`;
-                const fullResponse = new Uint8Array(httpResponse.length + responseBody.length);
-                fullResponse.set(new TextEncoder().encode(httpResponse), 0);
-                fullResponse.set(responseBody, httpResponse.length);
-
-                outputStream.write_bytes_async(
-                    GLib.Bytes.new(fullResponse), GLib.PRIORITY_DEFAULT, null, (_out, writeResult) => {
-                        try {
-                            outputStream.write_bytes_finish(writeResult);
-                        } catch (e) {
-                            console.error(`ConfigSyncPreferences: Error writing OAuth response: ${e.message}`);
-                        }
-                        // Close connection and stop server
-                        connection.close(null);
-                        const stopId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
-                            if (this._gdriveOAuthServer === socketService) {
-                                socketService.stop();
-                                socketService.close();
-                                this._gdriveOAuthServer = null;
-                            }
-                            this._removeActiveTimeout(stopId);
-                            return GLib.SOURCE_REMOVE;
-                        });
-                        this._addActiveTimeout(stopId);
-                    }
-                );
-            } catch (e) {
-                console.error(`ConfigSyncPreferences: Error handling OAuth callback: ${e.message}`);
-            }
-        });
-    }
-
-    _exchangeGDriveCodeForTokens(clientId, clientSecret, codeVerifier, code, redirectUri, settings, statusRow, authButton) {
-        const session = new Soup.Session();
-        const body = `client_id=${encodeURIComponent(clientId)}` +
-            `&client_secret=${encodeURIComponent(clientSecret)}` +
-            `&code=${encodeURIComponent(code)}` +
-            `&grant_type=authorization_code` +
-            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-            `&code_verifier=${encodeURIComponent(codeVerifier)}`;
-
-        const message = Soup.Message.new('POST', ConfigSyncPreferences.GDRIVE_TOKEN_URL);
-        message.set_request_body_from_bytes(
-            'application/x-www-form-urlencoded',
-            GLib.Bytes.new(new TextEncoder().encode(body))
-        );
-
-        session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null, (sess, result) => {
-            try {
-                const bytes = sess.send_and_read_finish(result);
-                const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
-
-                if (data.refresh_token) {
-                    settings.set_string('gdrive-refresh-token', data.refresh_token);
-                    statusRow.subtitle = _('Authorized successfully!');
-                    authButton.label = _('Re-authorize');
-                    console.log('ConfigSyncPreferences: Google Drive OAuth2 authorization successful');
-                } else {
-                    statusRow.subtitle = _('Error: No refresh token received. Try revoking app access at myaccount.google.com and re-authorizing.');
-                    authButton.label = _('Authorize');
-                    console.error('ConfigSyncPreferences: No refresh token in response');
-                }
-            } catch (e) {
-                statusRow.subtitle = _(`Token exchange failed: ${e.message}`);
-                authButton.label = _('Authorize');
-                console.error(`ConfigSyncPreferences: Token exchange error: ${e.message}`);
-            }
-            authButton.sensitive = true;
-        });
-    }
 }
