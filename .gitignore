@@ -2,6 +2,7 @@
 *.code-workspace
 .vscode/
 .idea/
+notes.txt
 
 # OS
 .DS_Store
