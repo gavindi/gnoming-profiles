@@ -2,6 +2,12 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.3.3] - 2026-02-19
+
+### Fixed
+- **Google Drive polling not detecting remote changes on other devices** — first poll now signals `hasChanges: true` so new clients pull remote data instead of silently caching the modifiedTime
+- **Stale file ID cache pointing to trashed files** — polling now requests the `trashed` field from Google Drive API; if the cached file ID resolves to a trashed file, all caches are cleared and a fresh resolve is triggered
+
 ## [v3.3.2] - 2026-02-19
 
 ### Added

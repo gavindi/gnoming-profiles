@@ -827,7 +827,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.3.2')
+            subtitle: _('3.3.3')
         });
         infoGroup.add(versionRow);
         
@@ -899,6 +899,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v333Row = new Adw.ActionRow({
+            title: _('v3.3.3'),
+            subtitle: _('Fixed Google Drive polling not detecting remote changes across devices')
+        });
+        changelogGroup.add(v333Row);
+
         const v332Row = new Adw.ActionRow({
             title: _('v3.3.2'),
             subtitle: _('Google Drive storage backend with OAuth2 authorization')
@@ -922,12 +928,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Auto-detect repository default branch')
         });
         changelogGroup.add(v304Row);
-
-        const v303Row = new Adw.ActionRow({
-            title: _('v3.0.3'),
-            subtitle: _('Added GNOME Shell 49 support')
-        });
-        changelogGroup.add(v303Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({
