@@ -20,8 +20,15 @@ import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import Goa from 'gi://Goa';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
+// GOA is optional — Google Drive backend is only available when the typelib is installed
+let Goa = null;
+try {
+    Goa = (await import('gi://Goa')).default;
+} catch (e) {
+    console.log(`GnomingProfiles prefs: GOA not available, Google Drive option will be hidden: ${e.message}`);
+}
 
 export default class ConfigSyncPreferences extends ExtensionPreferences {
     // UI constants
@@ -204,126 +211,139 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         nextcloudGroup.add(ncInfoRow);
 
-        // Google Drive settings group (GOA-based)
-        const gdriveGroup = new Adw.PreferencesGroup({
-            title: _('Google Drive'),
-            description: _('Uses your GNOME Online Account for Google Drive access'),
-        });
-        page.add(gdriveGroup);
+        // Google Drive settings group — only available when GOA typelib is installed
+        let gdriveGroup = null;
+        const goaAvailable = Goa !== null;
 
-        // Enumerate Google accounts from GOA
-        let googleAccounts = [];
-        try {
-            const goaClient = Goa.Client.new_sync(null);
-            const allAccounts = goaClient.get_accounts();
+        if (goaAvailable) {
+            gdriveGroup = new Adw.PreferencesGroup({
+                title: _('Google Drive'),
+                description: _('Uses your GNOME Online Account for Google Drive access'),
+            });
+            page.add(gdriveGroup);
 
-            for (const obj of allAccounts) {
-                const account = obj.get_account();
-                if (account.provider_type !== 'google') continue;
-
-                googleAccounts.push({
-                    id: account.id,
-                    identity: account.identity,
-                    filesDisabled: account.files_disabled,
-                });
-            }
-        } catch (e) {
-            console.error(`ConfigSyncPreferences: Failed to enumerate GOA accounts: ${e.message}`);
-        }
-
-        // Account selection ComboRow
-        const accountModel = new Gtk.StringList();
-        for (const acc of googleAccounts) {
-            const suffix = acc.filesDisabled ? _(' (Files disabled)') : '';
-            accountModel.append(`${acc.identity}${suffix}`);
-        }
-        if (googleAccounts.length === 0) {
-            accountModel.append(_('No Google accounts found'));
-        }
-
-        const gdriveAccountRow = new Adw.ComboRow({
-            title: _('Google Account'),
-            subtitle: _('Select which Google account to use for Drive sync'),
-            model: accountModel,
-            sensitive: googleAccounts.length > 0,
-        });
-
-        // Set current selection from settings
-        const currentAccountId = settings.get_string('gdrive-goa-account-id');
-        if (currentAccountId && googleAccounts.length > 0) {
-            const idx = googleAccounts.findIndex(a => a.id === currentAccountId);
-            if (idx >= 0) {
-                gdriveAccountRow.selected = idx;
-            }
-        }
-
-        gdriveAccountRow.connect('notify::selected', () => {
-            if (googleAccounts.length > 0 && gdriveAccountRow.selected < googleAccounts.length) {
-                const selected = googleAccounts[gdriveAccountRow.selected];
-                settings.set_string('gdrive-goa-account-id', selected.id);
-            }
-        });
-        gdriveGroup.add(gdriveAccountRow);
-
-        // Button to open GNOME Online Accounts settings
-        const goaRow = new Adw.ActionRow({
-            title: _('Account Management'),
-            subtitle: _('Add or manage Google accounts in GNOME Settings'),
-        });
-        const goaButton = new Gtk.Button({
-            label: _('Open Online Accounts'),
-            valign: Gtk.Align.CENTER,
-        });
-        goaButton.connect('clicked', () => {
+            // Enumerate Google accounts from GOA
+            let googleAccounts = [];
             try {
-                Gio.AppInfo.launch_default_for_uri('gnome-control-center://online-accounts', null);
+                const goaClient = Goa.Client.new_sync(null);
+                const allAccounts = goaClient.get_accounts();
+
+                for (const obj of allAccounts) {
+                    const account = obj.get_account();
+                    if (account.provider_type !== 'google') continue;
+
+                    googleAccounts.push({
+                        id: account.id,
+                        identity: account.identity,
+                        filesDisabled: account.files_disabled,
+                    });
+                }
             } catch (e) {
-                try {
-                    GLib.spawn_command_line_async('gnome-control-center online-accounts');
-                } catch (e2) {
-                    console.error(`ConfigSyncPreferences: Failed to open GNOME Settings: ${e2.message}`);
+                console.error(`ConfigSyncPreferences: Failed to enumerate GOA accounts: ${e.message}`);
+            }
+
+            // Account selection ComboRow
+            const accountModel = new Gtk.StringList();
+            for (const acc of googleAccounts) {
+                const suffix = acc.filesDisabled ? _(' (Files disabled)') : '';
+                accountModel.append(`${acc.identity}${suffix}`);
+            }
+            if (googleAccounts.length === 0) {
+                accountModel.append(_('No Google accounts found'));
+            }
+
+            const gdriveAccountRow = new Adw.ComboRow({
+                title: _('Google Account'),
+                subtitle: _('Select which Google account to use for Drive sync'),
+                model: accountModel,
+                sensitive: googleAccounts.length > 0,
+            });
+
+            // Set current selection from settings
+            const currentAccountId = settings.get_string('gdrive-goa-account-id');
+            if (currentAccountId && googleAccounts.length > 0) {
+                const idx = googleAccounts.findIndex(a => a.id === currentAccountId);
+                if (idx >= 0) {
+                    gdriveAccountRow.selected = idx;
                 }
             }
-        });
-        goaRow.add_suffix(goaButton);
-        gdriveGroup.add(goaRow);
 
-        // Folder name
-        const gdriveFolderRow = new Adw.EntryRow({
-            title: _('Drive Folder Name'),
-            text: settings.get_string('gdrive-folder-name'),
-        });
-        gdriveFolderRow.connect('changed', () => {
-            settings.set_string('gdrive-folder-name', gdriveFolderRow.text);
-        });
-        gdriveGroup.add(gdriveFolderRow);
+            gdriveAccountRow.connect('notify::selected', () => {
+                if (googleAccounts.length > 0 && gdriveAccountRow.selected < googleAccounts.length) {
+                    const selected = googleAccounts[gdriveAccountRow.selected];
+                    settings.set_string('gdrive-goa-account-id', selected.id);
+                }
+            });
+            gdriveGroup.add(gdriveAccountRow);
 
-        // Setup info
-        const gdriveSetupInfoRow = new Adw.ActionRow({
-            title: _('Setup'),
-            subtitle: _('1. Add your Google account in GNOME Settings > Online Accounts\n2. Ensure "Files" is enabled for the account\n3. Select the account above\n\nRequires gir1.2-goa-1.0 or gnome-online-accounts package — see README for install instructions'),
-        });
-        gdriveGroup.add(gdriveSetupInfoRow);
+            // Button to open GNOME Online Accounts settings
+            const goaRow = new Adw.ActionRow({
+                title: _('Account Management'),
+                subtitle: _('Add or manage Google accounts in GNOME Settings'),
+            });
+            const goaButton = new Gtk.Button({
+                label: _('Open Online Accounts'),
+                valign: Gtk.Align.CENTER,
+            });
+            goaButton.connect('clicked', () => {
+                try {
+                    Gio.AppInfo.launch_default_for_uri('gnome-control-center://online-accounts', null);
+                } catch (e) {
+                    try {
+                        GLib.spawn_command_line_async('gnome-control-center online-accounts');
+                    } catch (e2) {
+                        console.error(`ConfigSyncPreferences: Failed to open GNOME Settings: ${e2.message}`);
+                    }
+                }
+            });
+            goaRow.add_suffix(goaButton);
+            gdriveGroup.add(goaRow);
 
-        // Add Google Drive to provider ComboRow
-        providerRow.model.append(_('Google Drive'));
+            // Folder name
+            const gdriveFolderRow = new Adw.EntryRow({
+                title: _('Drive Folder Name'),
+                text: settings.get_string('gdrive-folder-name'),
+            });
+            gdriveFolderRow.connect('changed', () => {
+                settings.set_string('gdrive-folder-name', gdriveFolderRow.text);
+            });
+            gdriveGroup.add(gdriveFolderRow);
+
+            // Setup info
+            const gdriveSetupInfoRow = new Adw.ActionRow({
+                title: _('Setup'),
+                subtitle: _('1. Add your Google account in GNOME Settings > Online Accounts\n2. Ensure "Files" is enabled for the account\n3. Select the account above\n\nRequires gir1.2-goa-1.0 or gnome-online-accounts package — see README for install instructions'),
+            });
+            gdriveGroup.add(gdriveSetupInfoRow);
+
+            // Add Google Drive to provider ComboRow
+            providerRow.model.append(_('Google Drive'));
+        }
 
         // Show/hide provider groups based on selection
+        const providerValues = goaAvailable
+            ? ['github', 'nextcloud', 'googledrive']
+            : ['github', 'nextcloud'];
+
         const updateProviderVisibility = () => {
             githubGroup.visible = providerRow.selected === 0;
             nextcloudGroup.visible = providerRow.selected === 1;
-            gdriveGroup.visible = providerRow.selected === 2;
+            if (gdriveGroup)
+                gdriveGroup.visible = providerRow.selected === 2;
         };
 
         providerRow.connect('notify::selected', () => {
-            const values = ['github', 'nextcloud', 'googledrive'];
-            settings.set_string('storage-provider', values[providerRow.selected] || 'github');
+            settings.set_string('storage-provider', providerValues[providerRow.selected] || 'github');
             updateProviderVisibility();
         });
 
-        const currentProviderIdx = currentProvider === 'nextcloud' ? 1
-            : currentProvider === 'googledrive' ? 2
+        let currentProviderIdx = currentProvider === 'nextcloud' ? 1
+            : (currentProvider === 'googledrive' && goaAvailable) ? 2
             : 0;
+        // If user had googledrive selected but GOA is gone, reset to github
+        if (currentProvider === 'googledrive' && !goaAvailable) {
+            settings.set_string('storage-provider', 'github');
+        }
         providerRow.selected = currentProviderIdx;
         updateProviderVisibility();
 
@@ -809,7 +829,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.4.1')
+            subtitle: _('3.4.2')
         });
         infoGroup.add(versionRow);
         
@@ -881,6 +901,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v342Row = new Adw.ActionRow({
+            title: _('v3.4.2'),
+            subtitle: _('GOA is now optional — extension loads without gir1.2-goa-1.0, Google Drive hidden when unavailable')
+        });
+        changelogGroup.add(v342Row);
+
         const v341Row = new Adw.ActionRow({
             title: _('v3.4.1'),
             subtitle: _('Nextcloud 412 polling fix, graceful 404 handling, UI text improvements')
@@ -904,12 +930,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Google Drive GOA authentication with multi-account support')
         });
         changelogGroup.add(v334Row);
-
-        const v333Row = new Adw.ActionRow({
-            title: _('v3.3.3'),
-            subtitle: _('Fixed Google Drive polling not detecting remote changes')
-        });
-        changelogGroup.add(v333Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({

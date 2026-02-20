@@ -26,7 +26,14 @@ import { RequestQueue } from './lib/RequestQueue.js';
 import { ETagManager } from './lib/ETagManager.js';
 import { GitHubProvider } from './lib/GitHubProvider.js';
 import { NextcloudProvider } from './lib/NextcloudProvider.js';
-import { GoogleDriveProvider } from './lib/GoogleDriveProvider.js';
+// GoogleDriveProvider requires GOA typelib — import dynamically so the extension
+// still loads when gir1.2-goa-1.0 / gnome-online-accounts is not installed.
+let GoogleDriveProvider = null;
+try {
+    ({ GoogleDriveProvider } = await import('./lib/GoogleDriveProvider.js'));
+} catch (e) {
+    console.log(`GnomingProfiles: Google Drive provider unavailable (GOA not installed): ${e.message}`);
+}
 import { FileMonitor } from './lib/FileMonitor.js';
 import { SettingsMonitor } from './lib/SettingsMonitor.js';
 import { WallpaperManager } from './lib/WallpaperManager.js';
@@ -80,7 +87,6 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     enable() {
-        
         // Initialize settings
         this._settings = this.getSettings();
         
@@ -179,7 +185,12 @@ export default class ConfigSyncExtension extends Extension {
             case 'nextcloud':
                 return new NextcloudProvider(this._requestQueue, this._etagManager);
             case 'googledrive':
-                return new GoogleDriveProvider(this._requestQueue, this._etagManager);
+                if (GoogleDriveProvider) {
+                    return new GoogleDriveProvider(this._requestQueue, this._etagManager);
+                }
+                console.warn('GnomingProfiles: Google Drive selected but GOA is not available, falling back to GitHub');
+                this._settings.set_string('storage-provider', 'github');
+                return new GitHubProvider(this._requestQueue, this._etagManager);
             case 'github':
             default:
                 return new GitHubProvider(this._requestQueue, this._etagManager);

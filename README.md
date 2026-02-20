@@ -38,7 +38,7 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 
 ### Prerequisites
 
-The GNOME Online Accounts typelib is required for Google Drive support. It is pre-installed on most GNOME desktops, but if missing (e.g. on a minimal install), install it with:
+The extension works out of the box with GitHub and Nextcloud. If you plan to use **Google Drive** as your storage backend, you also need the GNOME Online Accounts typelib. It is pre-installed on most GNOME desktops, but if missing (e.g. on a minimal install), install it with:
 
 ```bash
 # Debian / Ubuntu
@@ -538,7 +538,7 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 ## Requirements
 
 - GNOME Shell 45+
-- **GNOME Online Accounts GIR** (`gir1.2-goa-1.0`) — required for Google Drive support
+- **GNOME Online Accounts GIR** (`gir1.2-goa-1.0`) — only required if using Google Drive as the storage backend
 - One of the following storage backends:
   - **GitHub**: Account with a private repository and Personal Access Token (`repo` scope)
   - **Nextcloud**: Server with WebDAV access and an App Password

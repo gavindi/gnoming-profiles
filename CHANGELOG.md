@@ -2,6 +2,15 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.4.2] - 2026-02-21
+
+### Changed
+- **GOA is now an optional dependency** — the extension loads and becomes fully active even when `gir1.2-goa-1.0` / `gnome-online-accounts` is not installed; Google Drive is simply hidden as a storage option
+- `extension.js` uses dynamic `await import()` for `GoogleDriveProvider`; if the GOA typelib is missing the import fails gracefully and `GoogleDriveProvider` stays `null`
+- `prefs.js` uses dynamic `await import('gi://Goa')` — when unavailable, the Google Drive preferences group and provider dropdown entry are omitted entirely
+- If the user previously had `googledrive` selected but GOA is no longer available, both `extension.js` and `prefs.js` automatically reset `storage-provider` to `github` with a log message
+- Updated version to 3.4.2 with changelog showing last five releases
+
 ## [v3.4.1] - 2026-02-21
 
 ### Fixed
