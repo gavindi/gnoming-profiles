@@ -444,13 +444,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         settings.bind('auto-sync-remote-changes', autoSyncRemoteRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         pollingGroup.add(autoSyncRemoteRow);
         
-        // ETag efficiency info
-        const etagInfoRow = new Adw.ActionRow({
-            title: _('📊 ETag Efficiency'),
-            subtitle: _('• Uses If-None-Match headers for conditional requests\n• 304 Not Modified responses save up to 95% bandwidth\n• ETags cached in memory during extension session\n• Check panel menu for real-time ETag status')
-        });
-        pollingGroup.add(etagInfoRow);
-        
         // Enable/disable polling rows based on main setting
         const updatePollingRowSensitivity = () => {
             pollingIntervalRow.sensitive = pollingEnabledRow.active;
@@ -467,33 +460,21 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const changeMonitoringTipsRow = new Adw.ActionRow({
             title: _('💡 Change Monitoring Tips'),
-            subtitle: _('• Files are monitored in real-time for changes\n• GSettings changes trigger immediate sync\n• Use sync delay to prevent excessive syncing\n• Binary files are automatically skipped')
+            subtitle: _('• Files are monitored in real-time for changes\n• GSettings changes trigger immediate sync\n• Use sync delay to prevent excessive syncing\n• Binary files are automatically skipped\n• Set 1-2 minutes for testing, 5-15 minutes for production')
         });
         tipsGroup.add(changeMonitoringTipsRow);
-        
-        const etagPollingTipsRow = new Adw.ActionRow({
-            title: _('💡 ETag Polling Tips'),
-            subtitle: _('• Uses HTTP ETags for ultra-efficient polling\n• 304 responses indicate no changes (saves bandwidth)\n• Can poll frequently without heavy API usage\n• ETags automatically cached and managed\n• Set 1-2 minutes for testing, 5-15 minutes for production')
-        });
-        tipsGroup.add(etagPollingTipsRow);
-        
-        const performanceV29Row = new Adw.ActionRow({
-            title: _('🚀 Performance (v2.9 with ETags)'),
-            subtitle: _('• ETag polling reduces bandwidth by up to 95%\n• GitHub Tree API batches all changes into single commits\n• Request queue manages GitHub API concurrency\n• Smart caching prevents uploading unchanged files\n• Dramatic reduction in API rate limit usage')
-        });
-        tipsGroup.add(performanceV29Row);
         
         // Initialize sync group
         const initGroup = new Adw.PreferencesGroup({
             title: _('Manual Initialization'),
-            description: _('Force an initial backup to GitHub repository')
+            description: _('Force an initial backup to your storage provider')
         });
         page.add(initGroup);
         
         // Initialize sync button with improved timeout management
         const initSyncRow = new Adw.ActionRow({
             title: _('Initialize Sync'),
-            subtitle: _('Create an initial backup of all configured schemas and files to GitHub'),
+            subtitle: _('Create an initial backup of all configured schemas and files to your storage provider'),
             activatable: true
         });
         
@@ -828,7 +809,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.4.0')
+            subtitle: _('3.4.1')
         });
         infoGroup.add(versionRow);
         
@@ -900,6 +881,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v341Row = new Adw.ActionRow({
+            title: _('v3.4.1'),
+            subtitle: _('Nextcloud 412 polling fix, graceful 404 handling, UI text improvements')
+        });
+        changelogGroup.add(v341Row);
+
         const v340Row = new Adw.ActionRow({
             title: _('v3.4.0'),
             subtitle: _('Schema filename fix, make install cleanup, GOA prerequisite docs')
@@ -923,12 +910,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Fixed Google Drive polling not detecting remote changes')
         });
         changelogGroup.add(v333Row);
-
-        const v332Row = new Adw.ActionRow({
-            title: _('v3.3.2'),
-            subtitle: _('Google Drive storage backend')
-        });
-        changelogGroup.add(v332Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({

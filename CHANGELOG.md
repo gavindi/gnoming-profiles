@@ -2,6 +2,17 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.4.1] - 2026-02-21
+
+### Fixed
+- **Nextcloud polling 412 Precondition Failed** — SabreDAV returns 412 instead of 304 for conditional HEAD requests with `If-None-Match`; now re-fetches the ETag without the conditional header and correctly reports changes
+- **Nextcloud file download 404 noise** — `downloadFile()` no longer logs errors for 404 responses, which are expected when a file hasn't been uploaded yet and are handled gracefully by the caller
+
+### Changed
+- Preferences UI text made provider-agnostic — \"Force an initial backup to GitHub\" now says \"to your storage provider\"
+- Simplified Sync tab — removed ETag Efficiency info, ETag Polling Tips, and Performance sections; added polling interval tip to Change Monitoring Tips
+- Updated version to 3.4.1 with changelog showing last five releases
+
 ## [v3.4.0] - 2026-02-20
 
 ### Fixed
