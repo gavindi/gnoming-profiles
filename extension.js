@@ -81,6 +81,7 @@ export default class ConfigSyncExtension extends Extension {
 
         // Status update timer
         this._statusUpdateTimer = null;
+        this._statusUpdateScheduled = false;
 
         // Settings signal handler IDs for cleanup
         this._settingsSignalIds = [];
@@ -108,8 +109,8 @@ export default class ConfigSyncExtension extends Extension {
         // Setup settings change listeners
         this._setupSettingsListeners();
         
-        // Setup status update timer
-        this._setupStatusUpdateTimer();
+        // Setup status update scheduling (event-driven)
+        this._scheduleStatusUpdate();
         
         // Initial sync if enabled
         if (this._settings.get_boolean('auto-sync-on-login')) {
@@ -167,7 +168,7 @@ export default class ConfigSyncExtension extends Extension {
 
         // Management components
         this._wallpaperManager = new WallpaperManager(this._storageProvider);
-        this._syncManager = new SyncManager(this._storageProvider, this._wallpaperManager, this._settings);
+        this._syncManager = new SyncManager(this._storageProvider, this._wallpaperManager, this._settings, this._settingsMonitor);
 
         // Set up change callbacks
         this._fileMonitor.setChangeCallback((source) => this._onChangeDetected(source));
@@ -279,8 +280,7 @@ export default class ConfigSyncExtension extends Extension {
         
         if (this._sessionManager) {
             try {
-                // Clear the proxy reference
-                this._sessionManager = null;
+                this._sessionManager.run_dispose();
             } catch (e) {
                 console.error(`Error cleaning up session manager proxy: ${e.message}`);
             } finally {
@@ -311,6 +311,7 @@ export default class ConfigSyncExtension extends Extension {
         
         if (!changeMonitoringEnabled) {
             this._indicator.updateMonitoringStatus(false, filePaths.length, availableSchemas.length);
+            this._scheduleStatusUpdate();
             return;
         }
         
@@ -322,6 +323,7 @@ export default class ConfigSyncExtension extends Extension {
         
         // Update indicator
         this._indicator.updateMonitoringStatus(true, this._fileMonitor.getMonitorCount(), successfulSchemas);
+        this._scheduleStatusUpdate();
         
     }
     
@@ -407,6 +409,7 @@ export default class ConfigSyncExtension extends Extension {
         const credentials = this._storageProvider.getCredentials(this._settings);
         if (!this._storageProvider.hasValidCredentials(credentials)) {
             this._indicator.updatePollingStatus(false, 0);
+            this._scheduleStatusUpdate();
             return;
         }
 
@@ -428,6 +431,7 @@ export default class ConfigSyncExtension extends Extension {
         });
 
         this._indicator.updatePollingStatus(true, intervalMinutes);
+        this._scheduleStatusUpdate();
     }
     
     /**
@@ -568,6 +572,7 @@ export default class ConfigSyncExtension extends Extension {
             this._indicator.clearRemoteChanges();
         }
 
+        this._scheduleStatusUpdate();
     }
     
     /**
@@ -633,27 +638,32 @@ export default class ConfigSyncExtension extends Extension {
     }
     
     /**
-     * Setup status update timer with proper management
+     * Schedule a status update (event-driven, not continuous)
      */
-    _setupStatusUpdateTimer() {
-        // Clear any existing timer first
-        this._stopStatusUpdateTimer();
+    _scheduleStatusUpdate() {
+        if (this._statusUpdateScheduled || !this._indicator) {
+            return;
+        }
         
-        this._statusUpdateTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ConfigSyncExtension.STATUS_UPDATE_INTERVAL_MS, () => {
-            if (this._indicator && this._requestQueue && this._etagManager) {
-                // Update queue status
+        this._statusUpdateScheduled = true;
+        
+        this._statusUpdateTimer = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._statusUpdateScheduled = false;
+            this._statusUpdateTimer = null;
+            
+            if (this._indicator && this._requestQueue && this._etagManager && this._settings) {
                 this._indicator.updateQueueStatus(
                     this._requestQueue.pendingCount,
                     this._requestQueue.activeCount
                 );
 
-                // Update ETag status - check the appropriate key based on provider
                 const providerName = this._settings.get_string('storage-provider');
                 const etagKey = providerName === 'nextcloud' ? 'nextcloud-config' : 'commits';
                 const etagStatus = this._etagManager.getStatus(etagKey);
                 this._indicator.updateETagStatus(etagStatus.hasETag, etagStatus.lastResult);
             }
-            return GLib.SOURCE_CONTINUE;
+            
+            return GLib.SOURCE_REMOVE;
         });
     }
     
@@ -665,6 +675,7 @@ export default class ConfigSyncExtension extends Extension {
             GLib.source_remove(this._statusUpdateTimer);
             this._statusUpdateTimer = null;
         }
+        this._statusUpdateScheduled = false;
     }
     
     /**

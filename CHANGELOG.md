@@ -2,6 +2,21 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.4.3] - 2026-02-21
+
+### Performance
+- **Status update timer now event-driven** — replaced continuous 2-second polling with `GLib.idle_add()`; status updates only trigger when actual state changes occur, significantly reducing CPU usage
+- **Cached GSettings schema source** — `Gio.SettingsSchemaSource.get_default()` is now cached in SettingsMonitor instead of being looked up on every backup/restore operation
+- **Cached Gio.Settings instances** — SettingsMonitor provides `getSettings(schema)` to reuse Settings instances across sync operations
+- **File path expansion cached** — file paths with `~` expansion now computed once per operation in `_getExpandedFilePaths()` instead of multiple times per file
+
+### Optimizations
+- **FileMonitor uses Set for O(1) lookups** — `updateFiles()` now uses `new Set(filePaths)` instead of `Array.includes()` for O(1) membership checks
+- **RequestQueue race condition fix** — added `_isProcessing` flag to prevent recursive calls after destroy, ensuring stable operation
+
+### Bug Fixes
+- **Session handler cleanup** — fixed redundant `this._sessionManager = null` assignment in `_cleanupSessionHandlers()`; now properly calls `run_dispose()` for GObject cleanup
+
 ## [v3.4.2] - 2026-02-21
 
 ### Changed

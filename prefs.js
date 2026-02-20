@@ -829,7 +829,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.4.2')
+            subtitle: _('3.4.3')
         });
         infoGroup.add(versionRow);
         
@@ -901,6 +901,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v343Row = new Adw.ActionRow({
+            title: _('v3.4.3'),
+            subtitle: _('Performance: event-driven status updates, cached schema sources, O(1) file lookups')
+        });
+        changelogGroup.add(v343Row);
+
         const v342Row = new Adw.ActionRow({
             title: _('v3.4.2'),
             subtitle: _('GOA is now optional — extension loads without gir1.2-goa-1.0, Google Drive hidden when unavailable')
@@ -924,12 +930,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Removed redundant bidirectional sync option, build fixes')
         });
         changelogGroup.add(v335Row);
-
-        const v334Row = new Adw.ActionRow({
-            title: _('v3.3.4'),
-            subtitle: _('Google Drive GOA authentication with multi-account support')
-        });
-        changelogGroup.add(v334Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({
