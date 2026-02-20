@@ -13,7 +13,8 @@ DIST_FILES = extension.js \
 
 install:
 	mkdir -p $(DESTDIR)
-	cp -r * $(DESTDIR)/
+	cp -r $(DIST_FILES) $(DESTDIR)/
+	rm -f $(DESTDIR)/lib/README.md
 	glib-compile-schemas $(DESTDIR)/schemas/
 
 uninstall:
@@ -23,7 +24,7 @@ dist:
 	glib-compile-schemas schemas/
 	mkdir -p $(DISTDIR)
 	rm -f $(ZIPFILE)
-	zip -r $(ZIPFILE) $(DIST_FILES) -x "*.git*" "*~" "*.bak"
+	zip -r $(ZIPFILE) $(DIST_FILES) -x "*.git*" "*~" "*.bak" "lib/README.md"
 	@echo "Distribution package created: $(ZIPFILE)"
 
 clean:

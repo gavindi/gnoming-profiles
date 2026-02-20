@@ -36,7 +36,7 @@ gnoming-profiles/
 │   ├── PanelIndicator.js          # GNOME Shell panel UI
 │   └── Utils.js                   # Common utility functions
 └── schemas/
-    ├── org.gnome.shell.extensions.config-sync.gschema.xml
+    ├── org.gnome.shell.extensions.gnoming-profiles.gschema.xml
     └── gschemas.compiled          # Compiled schema (generated)
 ```
 
@@ -44,7 +44,7 @@ gnoming-profiles/
 
 ### Core Extension Files
 
-- **`extension.js`**: Main extension class — orchestrates all modules, creates the active storage provider via factory method, handles GNOME Shell lifecycle (enable/disable), session sync, polling, and live provider switching
+- **`extension.js`**: Main extension class — orchestrates all modules, creates the active storage provider via factory method, handles GNOME Shell lifecycle (enable/disable) with tracked signal disconnection, session sync, polling, and live provider switching
 - **`prefs.js`**: Preferences window — Adwaita tabbed UI (General, Sync, Content, Help, About) with provider selection dropdown and conditional GitHub/Nextcloud/Google Drive settings, GOA account selector for Google Drive
 - **`metadata.json`**: Extension metadata — name, UUID, version, GNOME Shell compatibility
 - **`stylesheet.css`**: CSS animations and styling for panel indicator states (syncing, monitoring, change detected)
@@ -70,7 +70,7 @@ gnoming-profiles/
 ### Management Modules (`lib/`)
 
 - **`WallpaperManager.js`**: Handles wallpaper syncing — on-demand loading, binary integrity validation (JPEG/PNG headers), URI path updating, download and restoration via the active storage provider
-- **`SyncManager.js`**: Coordinates all sync operations — provider-agnostic `syncToRemote`/`syncFromRemote`, content hash caching, sync locking, backward-compatible shims for legacy method names
+- **`SyncManager.js`**: Coordinates all sync operations — provider-agnostic `syncToRemote`/`syncFromRemote`, content hash caching, sync locking
 
 ### UI Module (`lib/`)
 
@@ -122,7 +122,7 @@ StorageProvider defines a common interface; GitHubProvider, NextcloudProvider, a
 Modules receive dependencies through constructors — SyncManager and WallpaperManager receive the active StorageProvider, enabling easy swapping and testing.
 
 ### Error Isolation
-Module failures don't cascade. Each module handles its own errors with comprehensive logging and graceful degradation.
+Module failures don't cascade. Each module handles its own errors with error-only logging and graceful degradation.
 
 ### Performance
 - ETag-based polling reduces bandwidth by up to 95%

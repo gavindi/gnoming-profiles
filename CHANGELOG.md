@@ -2,6 +2,24 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.4.0] - 2026-02-20
+
+### Fixed
+- **Schema filename mismatch** — renamed `org.gnome.shell.extensions.config-sync.gschema.xml` to `org.gnome.shell.extensions.gnoming-profiles.gschema.xml` to match the schema ID in metadata.json
+- **`make install` copies unnecessary files** — now uses `$(DIST_FILES)` instead of `cp -r *`, so only runtime files are installed
+- **Settings signal handlers not disconnected in `disable()`** — all 8 `changed::` signal connections on `Gio.Settings` are now tracked and properly disconnected during disable, preventing callbacks on orphaned objects
+- **Excessive logging** — removed all `console.log` and `console.warn` calls (170 across 13 files); only `console.error` retained for actual error conditions, complying with GNOME extension review guidelines
+- **Imaginary API usage in prefs** — removed `is_destroyed` property checks on GTK widgets and `Gio.Settings`, which is not a real GObject/GTK API
+
+### Changed
+- GOA dependency installation instructions moved to Installation section as a prerequisite in README
+- Updated `lib/README.md` — added GoogleDriveProvider documentation, dependency tree, and changelog entries for v3.3.1–v3.3.5
+- Updated `metadata.json` description to mention all three storage providers (GitHub, Nextcloud, Google Drive)
+- Excluded `lib/README.md` from distribution ZIP — unnecessary documentation file should not be shipped
+
+### Removed
+- Deprecated `syncToGitHub()` and `syncFromGitHub()` shim methods from SyncManager — no callers exist; use `syncToRemote()` / `syncFromRemote()` instead
+
 ## [v3.3.5] - 2026-02-19
 
 ### Changed

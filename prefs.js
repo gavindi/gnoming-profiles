@@ -68,7 +68,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
      * Cleanup active timeouts and references
      */
     _cleanup() {
-        console.log('ConfigSyncPreferences: Starting cleanup');
 
         // Clear all active timeouts
         for (const timeoutId of this._activeTimeouts) {
@@ -79,7 +78,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         // Clear settings reference
         this._settings = null;
 
-        console.log('ConfigSyncPreferences: Cleanup complete');
     }
     
     /**
@@ -516,7 +514,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             // Re-enable button after a delay with proper timeout management
             const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ConfigSyncPreferences.BUTTON_RENABLE_DELAY_MS, () => {
                 // Check if button still exists and preferences hasn't been destroyed
-                if (initButton && !initButton.is_destroyed && initButton.sensitive !== undefined) {
+                if (initButton) {
                     initButton.sensitive = true;
                     initButton.label = _('Initialize Sync');
                 }
@@ -623,11 +621,9 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         // Connect buffer changed signal - use weak reference pattern
         const schemasChangedHandler = () => {
-            if (settings && !settings.is_destroyed) {
-                const text = schemasBuffer.text;
-                const schemas = text.split('\n').filter(s => s.trim().length > 0);
-                settings.set_strv('gsettings-schemas', schemas);
-            }
+            const text = schemasBuffer.text;
+            const schemas = text.split('\n').filter(s => s.trim().length > 0);
+            settings.set_strv('gsettings-schemas', schemas);
         };
         schemasBuffer.connect('changed', schemasChangedHandler);
         
@@ -693,11 +689,9 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         // Connect buffer changed signal - use weak reference pattern
         const filesChangedHandler = () => {
-            if (settings && !settings.is_destroyed) {
-                const text = filesBuffer.text;
-                const files = text.split('\n').filter(f => f.trim().length > 0);
-                settings.set_strv('sync-files', files);
-            }
+            const text = filesBuffer.text;
+            const files = text.split('\n').filter(f => f.trim().length > 0);
+            settings.set_strv('sync-files', files);
         };
         filesBuffer.connect('changed', filesChangedHandler);
         
@@ -834,7 +828,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.3.5')
+            subtitle: _('3.4.0')
         });
         infoGroup.add(versionRow);
         
@@ -906,6 +900,12 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v340Row = new Adw.ActionRow({
+            title: _('v3.4.0'),
+            subtitle: _('Schema filename fix, make install cleanup, GOA prerequisite docs')
+        });
+        changelogGroup.add(v340Row);
+
         const v335Row = new Adw.ActionRow({
             title: _('v3.3.5'),
             subtitle: _('Removed redundant bidirectional sync option, build fixes')
@@ -929,12 +929,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Google Drive storage backend')
         });
         changelogGroup.add(v332Row);
-
-        const v331Row = new Adw.ActionRow({
-            title: _('v3.3.1'),
-            subtitle: _('Fixed Nextcloud polling and remote sync loop')
-        });
-        changelogGroup.add(v331Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({

@@ -71,13 +71,15 @@ export default class ConfigSyncExtension extends Extension {
         this._isPolling = false;
         this._lastKnownCommit = null;
         this._remoteChangesDetected = false;
-        
+
         // Status update timer
         this._statusUpdateTimer = null;
+
+        // Settings signal handler IDs for cleanup
+        this._settingsSignalIds = [];
     }
     
     enable() {
-        console.log('Gnoming Profiles extension enabling (v3.0.0) with binary-safe wallpaper syncing');
         
         // Initialize settings
         this._settings = this.getSettings();
@@ -108,11 +110,9 @@ export default class ConfigSyncExtension extends Extension {
             this._performInitialSync();
         }
         
-        console.log('Gnoming Profiles extension enabled successfully');
     }
     
     disable() {
-        console.log('Gnoming Profiles extension disabling');
         
         // Stop all monitoring and polling
         this._stopChangeMonitoring();
@@ -133,10 +133,15 @@ export default class ConfigSyncExtension extends Extension {
         // Clean up all components
         this._cleanupComponents();
         
+        // Disconnect all settings signal handlers
+        for (const id of this._settingsSignalIds) {
+            this._settings.disconnect(id);
+        }
+        this._settingsSignalIds = [];
+
         // Clear settings reference
         this._settings = null;
         
-        console.log('Gnoming Profiles extension disabled');
     }
     
     /**
@@ -162,7 +167,6 @@ export default class ConfigSyncExtension extends Extension {
         this._fileMonitor.setChangeCallback((source) => this._onChangeDetected(source));
         this._settingsMonitor.setChangeCallback((source) => this._onChangeDetected(source));
 
-        console.log(`All components initialized successfully (provider: ${this._storageProvider.name})`);
     }
 
     /**
@@ -173,14 +177,11 @@ export default class ConfigSyncExtension extends Extension {
 
         switch (providerName) {
             case 'nextcloud':
-                console.log('Using Nextcloud storage provider');
                 return new NextcloudProvider(this._requestQueue, this._etagManager);
             case 'googledrive':
-                console.log('Using Google Drive storage provider');
                 return new GoogleDriveProvider(this._requestQueue, this._etagManager);
             case 'github':
             default:
-                console.log('Using GitHub storage provider');
                 return new GitHubProvider(this._requestQueue, this._etagManager);
         }
     }
@@ -222,7 +223,6 @@ export default class ConfigSyncExtension extends Extension {
         // Clear remaining references
         this._etagManager = null;
 
-        console.log('All components cleaned up successfully');
     }
     
     /**
@@ -247,7 +247,6 @@ export default class ConfigSyncExtension extends Extension {
                 }
             });
             
-            console.log('Session handlers setup complete');
         } catch (e) {
             console.error(`Failed to setup session handlers: ${e.message}`);
         }
@@ -260,7 +259,6 @@ export default class ConfigSyncExtension extends Extension {
         if (this._sessionSignalId && this._sessionManager) {
             try {
                 this._sessionManager.disconnect(this._sessionSignalId);
-                console.log('Session manager signal disconnected');
             } catch (e) {
                 console.error(`Error disconnecting session manager signal: ${e.message}`);
             } finally {
@@ -272,7 +270,6 @@ export default class ConfigSyncExtension extends Extension {
             try {
                 // Clear the proxy reference
                 this._sessionManager = null;
-                console.log('Session manager proxy cleaned up');
             } catch (e) {
                 console.error(`Error cleaning up session manager proxy: ${e.message}`);
             } finally {
@@ -303,7 +300,6 @@ export default class ConfigSyncExtension extends Extension {
         
         if (!changeMonitoringEnabled) {
             this._indicator.updateMonitoringStatus(false, filePaths.length, availableSchemas.length);
-            console.log(`Change monitoring disabled. Configured: ${filePaths.length} files, ${availableSchemas.length}/${allSchemas.length} schemas available`);
             return;
         }
         
@@ -316,7 +312,6 @@ export default class ConfigSyncExtension extends Extension {
         // Update indicator
         this._indicator.updateMonitoringStatus(true, this._fileMonitor.getMonitorCount(), successfulSchemas);
         
-        console.log(`Change monitoring enabled: ${this._fileMonitor.getMonitorCount()} files, ${successfulSchemas} schemas monitored`);
     }
     
     /**
@@ -339,7 +334,6 @@ export default class ConfigSyncExtension extends Extension {
         
         this._pendingChanges = false;
         
-        console.log('Change monitoring stopped');
     }
     
     /**
@@ -362,7 +356,6 @@ export default class ConfigSyncExtension extends Extension {
         
         this._debounceTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, debounceDelay, () => {
             if (this._pendingChanges) {
-                console.log(`Triggering sync due to change: ${source}`);
                 this._syncOnChange();
                 this._pendingChanges = false;
             }
@@ -370,7 +363,6 @@ export default class ConfigSyncExtension extends Extension {
             return GLib.SOURCE_REMOVE;
         });
         
-        console.log(`Change detected from ${source}, sync scheduled in ${debounceDelay}ms`);
     }
     
     /**
@@ -403,15 +395,12 @@ export default class ConfigSyncExtension extends Extension {
         // Check credentials
         const credentials = this._storageProvider.getCredentials(this._settings);
         if (!this._storageProvider.hasValidCredentials(credentials)) {
-            console.warn(`${this._storageProvider.name} polling: Credentials not configured`);
             this._indicator.updatePollingStatus(false, 0);
             return;
         }
 
         const intervalMinutes = this._settings.get_int('polling-interval');
         this._isPolling = true;
-
-        console.log(`${this._storageProvider.name} ETag polling: Starting every ${intervalMinutes} minutes`);
 
         const intervalMs = intervalMinutes * ConfigSyncExtension.SECONDS_PER_MINUTE * ConfigSyncExtension.MILLISECONDS_PER_SECOND;
 
@@ -471,12 +460,10 @@ export default class ConfigSyncExtension extends Extension {
         const credentials = this._storageProvider.getCredentials(this._settings);
 
         try {
-            console.log(`${this._storageProvider.name} polling: Checking for changes...`);
 
             const result = await this._storageProvider.pollForChanges(credentials);
 
             if (result.etag304) {
-                console.log(`${this._storageProvider.name} polling: No changes detected (304 Not Modified)`);
                 if (this._indicator) {
                     this._indicator.showETagEfficiency();
                 }
@@ -484,7 +471,6 @@ export default class ConfigSyncExtension extends Extension {
             }
 
             if (!result.hasChanges) {
-                console.log(`${this._storageProvider.name} polling: No changes found`);
                 // For GitHub, track the last known commit
                 if (result.commits && result.commits.length > 0) {
                     const latestCommitSha = result.commits[0].sha;
@@ -501,7 +487,6 @@ export default class ConfigSyncExtension extends Extension {
             }
 
             // Generic change detection (Nextcloud and future providers)
-            console.log(`${this._storageProvider.name} polling: Remote changes detected!`);
             this._onRemoteChangesDetected(null);
 
         } catch (error) {
@@ -522,7 +507,6 @@ export default class ConfigSyncExtension extends Extension {
         const autoSyncRemote = this._settings.get_boolean('auto-sync-remote-changes');
 
         if (autoSyncRemote) {
-            console.log(`${this._storageProvider.name} polling: Starting auto-sync of remote changes`);
 
             this._performSyncOperation('remote changes', async () => {
                 // Disable both monitors to prevent downloaded files from
@@ -549,7 +533,6 @@ export default class ConfigSyncExtension extends Extension {
                 return 'Remote sync complete';
             }, true);
         } else {
-            console.log(`${this._storageProvider.name} polling: Auto-sync disabled, showing manual pull option`);
             if (this._indicator) {
                 this._indicator.updateStatus(_('Remote changes available - check menu to pull'));
             }
@@ -574,44 +557,44 @@ export default class ConfigSyncExtension extends Extension {
             this._indicator.clearRemoteChanges();
         }
 
-        console.log('Remote polling stopped');
     }
     
     /**
      * Setup settings change listeners
      */
     _setupSettingsListeners() {
-        this._settings.connect('changed::auto-sync-on-change', () => {
-            this._setupChangeMonitoring();
-        });
-        this._settings.connect('changed::sync-files', () => {
-            this._setupChangeMonitoring();
-        });
-        this._settings.connect('changed::gsettings-schemas', () => {
-            this._setupChangeMonitoring();
-        });
-        this._settings.connect('changed::sync-wallpapers', () => {
-            this._setupChangeMonitoring();
-        });
-        this._settings.connect('changed::polling-enabled', () => {
-            this._setupRemotePolling();
-        });
-        this._settings.connect('changed::polling-interval', () => {
-            this._setupRemotePolling();
-        });
-        this._settings.connect('changed::trigger-initial-sync', () => {
-            this._onTriggerInitialSync();
-        });
-        this._settings.connect('changed::storage-provider', () => {
-            this._onStorageProviderChanged();
-        });
+        this._settingsSignalIds.push(
+            this._settings.connect('changed::auto-sync-on-change', () => {
+                this._setupChangeMonitoring();
+            }),
+            this._settings.connect('changed::sync-files', () => {
+                this._setupChangeMonitoring();
+            }),
+            this._settings.connect('changed::gsettings-schemas', () => {
+                this._setupChangeMonitoring();
+            }),
+            this._settings.connect('changed::sync-wallpapers', () => {
+                this._setupChangeMonitoring();
+            }),
+            this._settings.connect('changed::polling-enabled', () => {
+                this._setupRemotePolling();
+            }),
+            this._settings.connect('changed::polling-interval', () => {
+                this._setupRemotePolling();
+            }),
+            this._settings.connect('changed::trigger-initial-sync', () => {
+                this._onTriggerInitialSync();
+            }),
+            this._settings.connect('changed::storage-provider', () => {
+                this._onStorageProviderChanged();
+            })
+        );
     }
 
     /**
      * Handle storage provider change - reinitialize components
      */
     _onStorageProviderChanged() {
-        console.log('Storage provider changed, reinitializing components');
         this._stopChangeMonitoring();
         this._stopRemotePolling();
 
@@ -636,7 +619,6 @@ export default class ConfigSyncExtension extends Extension {
         this._setupChangeMonitoring();
         this._setupRemotePolling();
 
-        console.log(`Storage provider switched to ${this._storageProvider.name}`);
     }
     
     /**
@@ -694,7 +676,6 @@ export default class ConfigSyncExtension extends Extension {
             // Success
             this._indicator.stopSyncAnimation();
             this._indicator.updateStatus(`${operationType} complete: ${new Date().toLocaleTimeString()}`);
-            console.log(`Sync operation completed successfully: ${operationType}`);
             
         } catch (error) {
             // Handle errors
@@ -715,7 +696,6 @@ export default class ConfigSyncExtension extends Extension {
      * Handle session login
      */
     _onLogin() {
-        console.log('Session login detected');
         if (this._settings.get_boolean('auto-sync-on-login')) {
             this._performSyncOperation('login', async () => {
                 const result = await this._syncManager.syncFromRemote();
@@ -733,7 +713,6 @@ export default class ConfigSyncExtension extends Extension {
      * Handle session logout
      */
     _onLogout() {
-        console.log('Session logout detected');
         if (this._settings.get_boolean('auto-sync-on-logout')) {
             this._performSyncOperation('logout', async () => {
                 await this._syncManager.syncToRemote();
@@ -751,8 +730,6 @@ export default class ConfigSyncExtension extends Extension {
         }
 
         this._settings.set_boolean('trigger-initial-sync', false);
-
-        console.log('Manual initial sync triggered from preferences');
 
         // Check credentials
         const credentials = this._storageProvider.getCredentials(this._settings);
