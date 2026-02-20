@@ -12,7 +12,7 @@ This directory contains the modular components of the Gnoming Profiles extension
   - Defines the contract for all storage providers (`uploadBatch`, `downloadFile`, `downloadBinaryFile`, `listDirectory`, `pollForChanges`)
   - Credential management (`getCredentials`, `hasValidCredentials`)
   - Change cache management (`clearChangeCache`)
-- **Usage**: Extended by concrete providers (GitHubProvider, NextcloudProvider)
+- **Usage**: Extended by concrete providers (GitHubProvider, NextcloudProvider, GoogleDriveProvider)
 
 #### `GitHubProvider.js`
 - **Purpose**: GitHub storage backend implementing StorageProvider
@@ -34,6 +34,18 @@ This directory contains the modular components of the Gnoming Profiles extension
   - ETag-based change detection on config files
 - **Dependencies**: StorageProvider
 - **Usage**: Self-hosted alternative to GitHub using any WebDAV-compatible server
+
+#### `GoogleDriveProvider.js`
+- **Purpose**: Google Drive storage backend implementing StorageProvider
+- **Features**:
+  - GOA (GNOME Online Accounts) authentication with multi-account support
+  - Path-to-ID resolution with folder/file ID caching
+  - Multipart upload (`multipart/related` with JSON metadata + binary content)
+  - Automatic folder creation and hierarchy management
+  - `modifiedTime`-based polling for remote change detection
+  - Stale/trashed file ID detection and cache invalidation
+- **Dependencies**: StorageProvider, Goa, Soup
+- **Usage**: Google Drive backend using system-managed GOA tokens — no manual credentials required
 
 ### Core Infrastructure
 
@@ -159,7 +171,8 @@ extension.js (Main)
 ├── StorageProvider.js (abstract base)
 │   ├── GitHubProvider.js (depends on GitHubAPI)
 │   │   └── GitHubAPI.js (depends on RequestQueue, ETagManager)
-│   └── NextcloudProvider.js (standalone HTTP via Soup)
+│   ├── NextcloudProvider.js (standalone HTTP via Soup)
+│   └── GoogleDriveProvider.js (GOA auth, standalone HTTP via Soup)
 ├── FileMonitor.js (uses Utils)
 ├── SettingsMonitor.js (uses Utils)
 ├── WallpaperManager.js (depends on StorageProvider, uses Utils)
@@ -171,7 +184,7 @@ extension.js (Main)
 ## Key Design Patterns
 
 ### Strategy Pattern
-StorageProvider defines a common interface; GitHubProvider and NextcloudProvider implement backend-specific logic. The active provider is selected at runtime and can be switched live.
+StorageProvider defines a common interface; GitHubProvider, NextcloudProvider, and GoogleDriveProvider implement backend-specific logic. The active provider is selected at runtime and can be switched live.
 
 ### Dependency Injection
 Components receive their dependencies through constructor parameters, making testing and mocking easier.
@@ -235,6 +248,11 @@ Each module includes extensive logging:
 
 ## Changelog
 
+- **v3.3.5** — Removed redundant bidirectional sync option, build fixes
+- **v3.3.4** — Google Drive GOA authentication with multi-account support, removed manual OAuth2 flow
+- **v3.3.3** — Fixed Google Drive polling not detecting remote changes, stale file ID cache fix
+- **v3.3.2** — Google Drive storage backend with OAuth2, multipart upload, modifiedTime polling
+- **v3.3.1** — Fixed Nextcloud polling, remote sync loop, panel indicator crash; added FileMonitor.setEnabled()
 - **v3.3.0** — Nextcloud/WebDAV backend, StorageProvider abstraction, live provider switching
 - **v3.0.4** — Auto-detect repository default branch instead of hardcoding "main"
 - **v3.0.3** — Added GNOME Shell 49 support

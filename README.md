@@ -36,6 +36,23 @@ A GNOME Shell extension that automatically syncs your gsettings and configuratio
 
 ## Installation
 
+### Prerequisites
+
+The GNOME Online Accounts typelib is required for Google Drive support. It is pre-installed on most GNOME desktops, but if missing (e.g. on a minimal install), install it with:
+
+```bash
+# Debian / Ubuntu
+sudo apt install gir1.2-goa-1.0
+
+# Fedora
+sudo dnf install gnome-online-accounts
+
+# Arch Linux
+sudo pacman -S gnome-online-accounts
+```
+
+### Steps
+
 1. Clone or download this extension
 2. Run `make install` to install to your local extensions directory
 3. Enable the extension using GNOME Extensions app or:
@@ -170,7 +187,7 @@ Open extension preferences, select your storage provider, and configure its cred
 - **File Monitoring**: Watches configured files for changes in real-time
 - **GSettings Monitoring**: Monitors GSettings schemas for any changes
 - **Smart Debouncing**: Configurable delay (1-300 seconds) to prevent excessive syncing
-- **Sync Direction**: Choose between backup-only or bidirectional sync for changes
+- **Remote Change Detection**: Separate polling section to detect and apply changes from other devices
 
 ### Remote Polling
 - **Efficient Remote Change Detection**: Uses ETags (GitHub/Nextcloud) or modifiedTime (Google Drive)
@@ -337,9 +354,7 @@ Restored wallpapers are stored in: `~/.local/share/gnoming-profiles/wallpapers/`
 ### Change Monitoring Settings
 - **Auto-sync on Changes**: Enable/disable real-time change monitoring
 - **Change Sync Delay**: Debounce delay in seconds (default: 5 seconds)
-- **Sync Direction**:
-  - Backup Only: Only upload changes to remote
-  - Bidirectional: Upload changes and download any updates from remote
+- **Remote Change Detection**: Separate polling section handles downloading changes from other devices
 
 ### Wallpaper Syncing Settings
 - **Sync Wallpapers**: Enable/disable wallpaper image syncing (default: disabled)
@@ -511,7 +526,7 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
 1. Enable polling for efficient conditional requests (ETags / modifiedTime)
 2. Increase the "Change Sync Delay" in preferences
 3. Review your monitored files list for rapidly-changing files
-4. Consider using "Backup Only" sync direction for change monitoring
+4. Review remote polling interval to reduce API calls
 
 ### Files Not Syncing
 1. Ensure files exist and are readable
@@ -529,21 +544,6 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep "Wallpaper Manager"
   - **Nextcloud**: Server with WebDAV access and an App Password
   - **Google Drive**: Google account configured in GNOME Online Accounts with "Files" enabled
 - Write access to monitored configuration files
-
-### Installing the GOA dependency
-
-The GNOME Online Accounts typelib is pre-installed on most GNOME desktops. If it is missing (e.g. on a minimal install), install it with:
-
-```bash
-# Debian / Ubuntu
-sudo apt install gir1.2-goa-1.0
-
-# Fedora
-sudo dnf install gnome-online-accounts
-
-# Arch Linux
-sudo pacman -S gnome-online-accounts
-```
 
 **Note**: Ubuntu-specific schemas (ubuntu-dock, ubuntu-appindicators, etc.) are only synced when the corresponding extensions are installed and active. The extension gracefully handles missing schemas without errors.
 

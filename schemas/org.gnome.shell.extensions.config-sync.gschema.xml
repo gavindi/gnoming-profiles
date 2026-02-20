@@ -72,11 +72,6 @@
       <summary>Change Sync Delay</summary>
       <description>Seconds to wait after a change before syncing (debouncing)</description>
     </key>
-    <key name="change-sync-bidirectional" type="b">
-      <default>false</default>
-      <summary>Bidirectional Change Sync</summary>
-      <description>Whether change sync should be bidirectional (backup and restore) or backup only</description>
-    </key>
     <key name="polling-enabled" type="b">
       <default>false</default>
       <summary>Enable Remote Polling</summary>

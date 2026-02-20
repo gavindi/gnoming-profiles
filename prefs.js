@@ -401,32 +401,9 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         settings.bind('change-sync-delay', delayRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         changeGroup.add(delayRow);
         
-        // Sync direction for changes
-        const syncDirectionRow = new Adw.ComboRow({
-            title: _('Change Sync Direction'),
-            subtitle: _('What to do when changes are detected'),
-            model: new Gtk.StringList()
-        });
-        
-        // Add options to the combo
-        syncDirectionRow.model.append(_('Backup Only (Upload to Remote)'));
-        syncDirectionRow.model.append(_('Backup and Restore (Bidirectional)'));
-        
-        // Set current selection
-        const currentSyncDirection = settings.get_boolean('change-sync-bidirectional') ? 1 : 0;
-        syncDirectionRow.selected = currentSyncDirection;
-        
-        syncDirectionRow.connect('notify::selected', () => {
-            const isBidirectional = syncDirectionRow.selected === 1;
-            settings.set_boolean('change-sync-bidirectional', isBidirectional);
-        });
-        
-        changeGroup.add(syncDirectionRow);
-        
-        // Enable/disable delay and direction rows based on change sync setting
+        // Enable/disable delay row based on change sync setting
         const updateChangeRowSensitivity = () => {
             delayRow.sensitive = changeSyncRow.active;
-            syncDirectionRow.sensitive = changeSyncRow.active;
         };
         changeSyncRow.connect('notify::active', updateChangeRowSensitivity);
         updateChangeRowSensitivity();
@@ -857,7 +834,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.3.4')
+            subtitle: _('3.3.5')
         });
         infoGroup.add(versionRow);
         
@@ -929,21 +906,27 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v335Row = new Adw.ActionRow({
+            title: _('v3.3.5'),
+            subtitle: _('Removed redundant bidirectional sync option, build fixes')
+        });
+        changelogGroup.add(v335Row);
+
         const v334Row = new Adw.ActionRow({
             title: _('v3.3.4'),
-            subtitle: _('Google Drive authentication via GNOME Online Accounts (GOA) with multi-account support')
+            subtitle: _('Google Drive GOA authentication with multi-account support')
         });
         changelogGroup.add(v334Row);
 
         const v333Row = new Adw.ActionRow({
             title: _('v3.3.3'),
-            subtitle: _('Fixed Google Drive polling not detecting remote changes across devices')
+            subtitle: _('Fixed Google Drive polling not detecting remote changes')
         });
         changelogGroup.add(v333Row);
 
         const v332Row = new Adw.ActionRow({
             title: _('v3.3.2'),
-            subtitle: _('Google Drive storage backend with GNOME Online Accounts authentication')
+            subtitle: _('Google Drive storage backend')
         });
         changelogGroup.add(v332Row);
 
@@ -952,18 +935,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Fixed Nextcloud polling and remote sync loop')
         });
         changelogGroup.add(v331Row);
-
-        const v330Row = new Adw.ActionRow({
-            title: _('v3.3.0'),
-            subtitle: _('Nextcloud/WebDAV backend, StorageProvider abstraction, live provider switching')
-        });
-        changelogGroup.add(v330Row);
-
-        const v304Row = new Adw.ActionRow({
-            title: _('v3.0.4'),
-            subtitle: _('Auto-detect repository default branch')
-        });
-        changelogGroup.add(v304Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({

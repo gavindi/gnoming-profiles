@@ -2,6 +2,15 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.3.5] - 2026-02-19
+
+### Changed
+- Removed redundant "Change Sync Direction" (bidirectional) option from Sync tab — remote restore is handled by the separate "Remote Change Detection" section
+- Removed unused `change-sync-bidirectional` GSettings key
+
+### Fixed
+- `make dist` now compiles GSettings schemas before zipping, so installs from the zip don't fail with missing `gschemas.compiled`
+
 ## [v3.3.4] - 2026-02-20
 
 ### Changed
