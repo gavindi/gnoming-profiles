@@ -89,28 +89,31 @@ gnoming-profiles/
 
 ```mermaid
 graph TD
-    A[extension.js] --> SP[StorageProvider]
-    SP --> GP[GitHubProvider]
-    SP --> NP[NextcloudProvider]
-    SP --> GD[GoogleDriveProvider]
-    GP --> D[GitHubAPI]
-    D --> B[RequestQueue]
-    D --> C[ETagManager]
-    NP --> B
-    NP --> C
+    A[extension.js] --> B[RequestQueue]
+    A --> C[ETagManager]
+    A --> GP[GitHubProvider]
+    A --> NP[NextcloudProvider]
+    A -.-> GD[GoogleDriveProvider]
     A --> E[FileMonitor]
     A --> F[SettingsMonitor]
     A --> G[WallpaperManager]
     A --> H[SyncManager]
     A --> I[PanelIndicator]
-    A --> J[Utils]
+    GP --> SP[StorageProvider]
+    GP --> D[GitHubAPI]
+    NP --> SP
+    GD --> SP
+    D --> B
+    D --> C
+    NP --> B
+    NP --> C
+    GD --> B
+    GD --> C
     G --> SP
-    G --> J
+    G --> J[Utils]
     H --> SP
     H --> G
-    H --> J
-    E --> J
-    F --> J
+    H --> F
 ```
 
 ## Key Design Principles

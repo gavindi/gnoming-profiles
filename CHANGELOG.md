@@ -2,6 +2,11 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.4.4] - 2026-02-26
+
+### Fixed
+- **Google Drive files stored in wrong location** — files with subdirectory paths (e.g. `files/home/.bashrc`, `wallpapers/wallpaper.jpg`) were being placed directly in the root `.gnoming-profiles/` folder instead of their correct subdirectories; `_resolvePathToId` now correctly creates all path segments as folders when resolving a parent directory
+
 ## [v3.4.3] - 2026-02-21
 
 ### Performance
