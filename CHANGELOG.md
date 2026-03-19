@@ -2,6 +2,12 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.5.0] - 2026-03-20
+
+### Changed
+- Added GNOME Shell 50 support
+- Dropped GNOME Shell 46 support
+
 ## [v3.4.4] - 2026-02-26
 
 ### Fixed

@@ -1,5 +1,5 @@
 /*
- * Gnoming Profiles extension for Gnome 46+
+ * Gnoming Profiles extension for Gnome 47+
  * Copyright 2025 Gavin Graham (gavindi)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -829,7 +829,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.4.3')
+            subtitle: _('3.5.0')
         });
         infoGroup.add(versionRow);
         
@@ -901,6 +901,18 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         });
         page.add(changelogGroup);
         
+        const v350Row = new Adw.ActionRow({
+            title: _('v3.5.0'),
+            subtitle: _('Added GNOME Shell 50 support, dropped GNOME 46 support')
+        });
+        changelogGroup.add(v350Row);
+
+        const v344Row = new Adw.ActionRow({
+            title: _('v3.4.4'),
+            subtitle: _('Google Drive: fixed files with subdirectory paths placed in wrong location')
+        });
+        changelogGroup.add(v344Row);
+
         const v343Row = new Adw.ActionRow({
             title: _('v3.4.3'),
             subtitle: _('Performance: event-driven status updates, cached schema sources, O(1) file lookups')
@@ -918,18 +930,6 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
             subtitle: _('Nextcloud 412 polling fix, graceful 404 handling, UI text improvements')
         });
         changelogGroup.add(v341Row);
-
-        const v340Row = new Adw.ActionRow({
-            title: _('v3.4.0'),
-            subtitle: _('Schema filename fix, make install cleanup, GOA prerequisite docs')
-        });
-        changelogGroup.add(v340Row);
-
-        const v335Row = new Adw.ActionRow({
-            title: _('v3.3.5'),
-            subtitle: _('Removed redundant bidirectional sync option, build fixes')
-        });
-        changelogGroup.add(v335Row);
         
         // Help group
         const helpGroup = new Adw.PreferencesGroup({

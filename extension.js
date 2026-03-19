@@ -1,5 +1,5 @@
 /*
- * Gnoming Profiles extension for Gnome 46+
+ * Gnoming Profiles extension for Gnome 47+
  * Copyright 2025 Gavin Graham (gavindi)
  *
  * This program is free software: you can redistribute it and/or modify
