@@ -829,7 +829,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.5.0')
+            subtitle: _('3.6.0')
         });
         infoGroup.add(versionRow);
         
