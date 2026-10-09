@@ -2,6 +2,19 @@
 
 All notable changes to the Gnoming Profiles extension are documented in this file.
 
+## [v3.6.1] - 2026-10-10
+
+### Fixed
+- **Compiled GSettings schema shipped in distribution ZIP** — `make dist` no longer runs `glib-compile-schemas` and now excludes `schemas/gschemas.compiled` from the package, resolving the EGO-P-006 review warning; the schema is compiled at install time
+- **Excessive ungated console logging** — all `console.log/warn/error` calls now go through a new `lib/Logger.js`; informational `log`/`warn` output is gated behind the `GNOMING_PROFILES_DEBUG=1` environment variable, while `error` remains for important failures, resolving the EGO-A-004 review warning
+
+### Changed
+- `make dist` target no longer compiles GSettings schemas and now excludes `schemas/gschemas.compiled` via the `zip -x` list (`Makefile`)
+- Added `lib/Logger.js` gated logging helper; `extension.js`, `prefs.js`, and all `lib/` modules now import and use it instead of calling `console.*` directly
+- Deleted the stale `schemas/gschemas.compiled` build artifact from the working tree
+- Bumped metadata version to 37
+- Updated About tab version to 3.6.1
+
 ## [v3.6.0] - 2026-09-02
 
 ### Changed

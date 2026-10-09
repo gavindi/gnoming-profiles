@@ -21,13 +21,14 @@ import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import { Logger } from './lib/Logger.js';
 
 // GOA is optional — Google Drive backend is only available when the typelib is installed
 let Goa = null;
 try {
     Goa = (await import('gi://Goa')).default;
 } catch (e) {
-    console.log(`GnomingProfiles prefs: GOA not available, Google Drive option will be hidden: ${e.message}`);
+    Logger.log(`GnomingProfiles prefs: GOA not available, Google Drive option will be hidden: ${e.message}`);
 }
 
 export default class ConfigSyncPreferences extends ExtensionPreferences {
@@ -239,7 +240,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
                     });
                 }
             } catch (e) {
-                console.error(`ConfigSyncPreferences: Failed to enumerate GOA accounts: ${e.message}`);
+                Logger.error(`ConfigSyncPreferences: Failed to enumerate GOA accounts: ${e.message}`);
             }
 
             // Account selection ComboRow
@@ -292,7 +293,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
                     try {
                         GLib.spawn_command_line_async('gnome-control-center online-accounts');
                     } catch (e2) {
-                        console.error(`ConfigSyncPreferences: Failed to open GNOME Settings: ${e2.message}`);
+                        Logger.error(`ConfigSyncPreferences: Failed to open GNOME Settings: ${e2.message}`);
                     }
                 }
             });
@@ -829,7 +830,7 @@ export default class ConfigSyncPreferences extends ExtensionPreferences {
         
         const versionRow = new Adw.ActionRow({
             title: _('Version'),
-            subtitle: _('3.6.0')
+            subtitle: _('3.6.1')
         });
         infoGroup.add(versionRow);
         

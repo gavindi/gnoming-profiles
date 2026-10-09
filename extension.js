@@ -22,6 +22,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // Import our modular components
+import { Logger } from './lib/Logger.js';
 import { RequestQueue } from './lib/RequestQueue.js';
 import { ETagManager } from './lib/ETagManager.js';
 import { GitHubProvider } from './lib/GitHubProvider.js';
@@ -32,7 +33,7 @@ let GoogleDriveProvider = null;
 try {
     ({ GoogleDriveProvider } = await import('./lib/GoogleDriveProvider.js'));
 } catch (e) {
-    console.log(`GnomingProfiles: Google Drive provider unavailable (GOA not installed): ${e.message}`);
+    Logger.log(`GnomingProfiles: Google Drive provider unavailable (GOA not installed): ${e.message}`);
 }
 import { FileMonitor } from './lib/FileMonitor.js';
 import { SettingsMonitor } from './lib/SettingsMonitor.js';
@@ -189,7 +190,7 @@ export default class ConfigSyncExtension extends Extension {
                 if (GoogleDriveProvider) {
                     return new GoogleDriveProvider(this._requestQueue, this._etagManager);
                 }
-                console.warn('GnomingProfiles: Google Drive selected but GOA is not available, falling back to GitHub');
+                Logger.warn('GnomingProfiles: Google Drive selected but GOA is not available, falling back to GitHub');
                 this._settings.set_string('storage-provider', 'github');
                 return new GitHubProvider(this._requestQueue, this._etagManager);
             case 'github':
@@ -260,7 +261,7 @@ export default class ConfigSyncExtension extends Extension {
             });
             
         } catch (e) {
-            console.error(`Failed to setup session handlers: ${e.message}`);
+            Logger.error(`Failed to setup session handlers: ${e.message}`);
         }
     }
     
@@ -272,7 +273,7 @@ export default class ConfigSyncExtension extends Extension {
             try {
                 this._sessionManager.disconnect(this._sessionSignalId);
             } catch (e) {
-                console.error(`Error disconnecting session manager signal: ${e.message}`);
+                Logger.error(`Error disconnecting session manager signal: ${e.message}`);
             } finally {
                 this._sessionSignalId = null;
             }
@@ -282,7 +283,7 @@ export default class ConfigSyncExtension extends Extension {
             try {
                 this._sessionManager.run_dispose();
             } catch (e) {
-                console.error(`Error cleaning up session manager proxy: ${e.message}`);
+                Logger.error(`Error cleaning up session manager proxy: ${e.message}`);
             } finally {
                 this._sessionManager = null;
             }
@@ -424,7 +425,7 @@ export default class ConfigSyncExtension extends Extension {
                 this._scheduleNextPoll(intervalMs);
             }
         }).catch(error => {
-            console.error(`${this._storageProvider.name} initial poll error: ${error.message}`);
+            Logger.error(`${this._storageProvider.name} initial poll error: ${error.message}`);
             if (this._isPolling) {
                 this._scheduleNextPoll(intervalMs);
             }
@@ -457,7 +458,7 @@ export default class ConfigSyncExtension extends Extension {
                     this._scheduleNextPoll(intervalMs);
                 }
             }).catch(error => {
-                console.error(`${this._storageProvider.name} ETag polling error: ${error.message}`);
+                Logger.error(`${this._storageProvider.name} ETag polling error: ${error.message}`);
                 if (this._isPolling) {
                     this._scheduleNextPoll(intervalMs);
                 }
@@ -505,7 +506,7 @@ export default class ConfigSyncExtension extends Extension {
             this._onRemoteChangesDetected(null);
 
         } catch (error) {
-            console.error(`${this._storageProvider.name} polling error: ${error.message}`);
+            Logger.error(`${this._storageProvider.name} polling error: ${error.message}`);
         }
     }
     
@@ -683,7 +684,7 @@ export default class ConfigSyncExtension extends Extension {
      */
     async _performSyncOperation(operationType, syncFunction, allowQueue = false) {
         if (!this._syncManager || !this._indicator) {
-            console.error(`Cannot perform sync operation: components not initialized`);
+            Logger.error(`Cannot perform sync operation: components not initialized`);
             return;
         }
         
@@ -703,7 +704,7 @@ export default class ConfigSyncExtension extends Extension {
             // Handle errors
             this._indicator.stopSyncAnimation();
             this._indicator.updateStatus(_(`${operationType} failed: ${error.message}`));
-            console.error(`Sync operation failed: ${operationType} - ${error.message}`);
+            Logger.error(`Sync operation failed: ${operationType} - ${error.message}`);
             
         } finally {
             // Always update UI
@@ -824,7 +825,7 @@ export default class ConfigSyncExtension extends Extension {
         try {
             super.openPreferences();
         } catch (error) {
-            console.error(`Failed to open preferences: ${error.message}`);
+            Logger.error(`Failed to open preferences: ${error.message}`);
         }
     }
 }

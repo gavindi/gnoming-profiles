@@ -21,10 +21,9 @@ uninstall:
 	rm -rf $(DESTDIR)
 
 dist:
-	glib-compile-schemas schemas/
 	mkdir -p $(DISTDIR)
 	rm -f $(ZIPFILE)
-	zip -r $(ZIPFILE) $(DIST_FILES) -x "*.git*" "*~" "*.bak" "lib/README.md"
+	zip -r $(ZIPFILE) $(DIST_FILES) -x "*.git*" "*~" "*.bak" "lib/README.md" "schemas/gschemas.compiled"
 	@echo "Distribution package created: $(ZIPFILE)"
 
 clean:
